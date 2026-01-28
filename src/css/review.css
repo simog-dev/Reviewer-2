@@ -161,38 +161,48 @@
   border-radius: var(--radius-full);
 }
 
-/* Collapse Buttons */
+/* Collapse Buttons — horizontal tab at top-center of each panel */
 .collapse-btn {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
-  padding: var(--spacing-xs);
-  background-color: var(--color-bg-tertiary);
+  padding: 4px 12px;
+  background-color: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .collapse-btn:hover {
-  background-color: var(--color-bg-hover);
-  color: var(--color-text);
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
 }
 
 .collapse-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
-.collapse-btn-left {
-  right: -20px;
-}
-
-.collapse-btn-right {
-  left: -20px;
+/* In collapsed state (40px strip), center vertically */
+.pdf-panel.collapsed .collapse-btn,
+.annotation-panel.collapsed .collapse-btn,
+.search-panel.collapsed .collapse-btn {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
 }
 
 /* PDF Panel */
@@ -202,7 +212,7 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  min-width: 30%;
+  min-width: 0;
 }
 
 .pdf-panel.collapsed {
@@ -332,7 +342,7 @@
 /* Annotation Panel */
 .annotation-panel {
   width: 350px;
-  min-width: 30%;
+  min-width: 0;
   max-width: 70%;
   display: flex;
   flex-direction: column;
@@ -463,10 +473,41 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   color: white;
+  position: relative;
 }
 
 .category-btn:hover {
   transform: scale(1.1);
+}
+
+.category-btn[data-tooltip]:hover::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.category-btn[data-tooltip]:hover::after {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1e1e2e;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .category-btn svg {
@@ -597,6 +638,120 @@
 }
 
 .pdf-panel.collapsed .collapsed-indicator,
-.annotation-panel.collapsed .collapsed-indicator {
+.annotation-panel.collapsed .collapsed-indicator,
+.search-panel.collapsed .collapsed-indicator {
   display: block;
+}
+
+/* Search Panel */
+.search-panel {
+  width: 350px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  position: relative;
+}
+
+.search-panel.collapsed {
+  min-width: 0;
+  width: 40px;
+  max-width: 40px;
+}
+
+.search-panel.collapsed .search-panel-content {
+  display: none;
+}
+
+.search-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.search-panel webview {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  min-width: 0;
+}
+
+/* Generate Review Button */
+.generate-review-container {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.btn-generate-review {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  position: relative;
+}
+
+.btn-generate-review:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.generate-review-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.generate-review-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.generate-review-spinner {
+  display: flex;
+  align-items: center;
+}
+
+.generate-review-spinner .spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+/* Tooltip for disabled button */
+.btn-generate-review[data-tooltip]:hover::before,
+.btn-generate-review[data-tooltip]:focus::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-generate-review[data-tooltip]:hover::after,
+.btn-generate-review[data-tooltip]:focus::after {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1e1e2e;
+  pointer-events: none;
+  z-index: 10;
 }

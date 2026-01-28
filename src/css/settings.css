@@ -1,0 +1,159 @@
+/* Settings Page Styles */
+
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.settings-header .btn-back {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.settings-header .btn-back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.settings-body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+.settings-card {
+  width: 100%;
+  max-width: 600px;
+  margin-top: var(--spacing-lg);
+}
+
+.settings-section {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.settings-section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-md);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-secondary);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+/* API Key input with show/hide toggle */
+.api-key-wrapper {
+  position: relative;
+}
+
+.api-key-wrapper input {
+  padding-right: 40px;
+}
+
+.btn-toggle-visibility {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.btn-toggle-visibility:hover {
+  color: var(--color-text);
+}
+
+.btn-toggle-visibility svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* Prompt textarea */
+.prompt-textarea {
+  min-height: 150px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+/* Temperature range */
+.temperature-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.temperature-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--color-primary);
+}
+
+.temperature-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  min-width: 36px;
+  text-align: center;
+}
+
+/* Save button row */
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--spacing-sm);
+}
+
+.btn-save-settings {
+  min-width: 120px;
+}

@@ -23,15 +23,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^11.7.0",
     "pdfjs-dist": "^4.9.155",
     "uuid": "^11.0.5"
   },
   "devDependencies": {
-    "electron": "^33.3.1",
-    "electron-builder": "^25.1.8",
     "@electron/rebuild": "^3.7.1",
     "@playwright/test": "^1.49.1",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
     "playwright": "^1.49.1"
   },
   "build": {
@@ -49,13 +50,22 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office"
     }
   }

@@ -4,6 +4,7 @@ import { PDFViewer } from './pdf-viewer.js';
 import { AnnotationManager } from './annotation-manager.js';
 import { ResizablePanels } from './resizable-panels.js';
 import { getCategoryIcon, escapeHtml } from './utils.js';
+import { createLLMProvider } from './llm-provider.js';
 
 // State
 let pdfId = null;
@@ -15,6 +16,7 @@ let categories = [];
 let highlightMode = false;
 let pendingSelection = null;
 let editingAnnotationId = null;
+let popupJustShown = false;
 
 // DOM Elements
 const pdfTitle = document.getElementById('pdf-title');
@@ -52,6 +54,7 @@ const commentInput = document.getElementById('comment-input');
 const contextMenu = document.getElementById('context-menu');
 const categoryMenu = document.getElementById('category-menu');
 const toastContainer = document.getElementById('toast-container');
+const btnGenerateReview = document.getElementById('btn-generate-review');
 
 // Initialize
 async function init() {
@@ -78,7 +81,9 @@ async function init() {
   resizablePanels = new ResizablePanels({
     pdfPanel: document.getElementById('pdf-panel'),
     annotationPanel: document.getElementById('annotation-panel'),
-    resizer: document.getElementById('panel-resizer'),
+    searchPanel: document.getElementById('search-panel'),
+    resizer1: document.getElementById('panel-resizer-1'),
+    resizer2: document.getElementById('panel-resizer-2'),
     container: document.querySelector('.main-content'),
     onResize: () => {
       // Trigger PDF re-render if needed
@@ -89,6 +94,7 @@ async function init() {
   await loadCategories();
   await loadPDF();
   await loadAnnotations();
+  await checkLLMReady();
 
   setupEventListeners();
   setupKeyboardShortcuts();
@@ -178,7 +184,7 @@ function renderCategoryButtons() {
   categoryButtons.innerHTML = categories.map(cat => `
     <button class="category-btn ${cat.name.toLowerCase()}"
             data-category-id="${cat.id}"
-            title="${cat.name}"
+            data-tooltip="${cat.name}"
             style="background-color: ${cat.color}">
       ${getCategoryIcon(cat.icon)}
     </button>
@@ -266,7 +272,8 @@ function handleTextSelected({ pageNumber, selectedText, rects, mouseX, mouseY })
   selectionPopup.style.left = `${mouseX}px`;
   selectionPopup.style.top = `${mouseY + 10}px`;
   selectionPopup.classList.add('active');
-  console.log('Selection popup shown');
+  popupJustShown = true;
+  requestAnimationFrame(() => { popupJustShown = false; });
 }
 
 function handleHighlightClick(annotation, event, isContextMenu = false) {
@@ -517,6 +524,67 @@ async function exportAnnotations(format) {
   }
 }
 
+// Check if LLM is configured (API key set)
+async function checkLLMReady() {
+  const apiKey = await window.api.getSetting('llm_api_key');
+  if (apiKey) {
+    btnGenerateReview.disabled = false;
+    btnGenerateReview.removeAttribute('data-tooltip');
+  } else {
+    btnGenerateReview.disabled = true;
+    btnGenerateReview.setAttribute('data-tooltip', 'API key required — configure in Settings');
+  }
+}
+
+// Generate review using LLM
+async function generateReview() {
+  const annotations = annotationManager.annotations;
+  if (annotations.length === 0) {
+    showToast('No annotations to review', 'error');
+    return;
+  }
+
+  // Set loading state
+  btnGenerateReview.disabled = true;
+  btnGenerateReview.querySelector('.generate-review-icon').style.display = 'none';
+  btnGenerateReview.querySelector('.generate-review-spinner').style.display = 'flex';
+  btnGenerateReview.querySelector('.generate-review-label').textContent = 'Generating...';
+
+  try {
+    const apiKey = await window.api.getSetting('llm_api_key');
+    const provider = await window.api.getSetting('llm_provider') || 'google';
+    const model = await window.api.getSetting('llm_model') || '';
+    const temperature = parseFloat(await window.api.getSetting('llm_temperature') || '0.7');
+    const prompt = await window.api.getSetting('llm_prompt') || undefined;
+
+    const llmProvider = createLLMProvider(provider, { apiKey, model, temperature, prompt });
+    const reviewText = await llmProvider.generateReview(annotations, pdfData.name);
+
+    // Save as .txt file
+    const defaultName = `${pdfData.name.replace('.pdf', '')}-review.txt`;
+    const result = await window.api.saveFile({
+      defaultName,
+      filters: [{ name: 'Text Files', extensions: ['txt'] }],
+      content: reviewText
+    });
+
+    if (result.success) {
+      showToast('Review generated and saved', 'success');
+    } else if (!result.canceled) {
+      showToast('Failed to save review file', 'error');
+    }
+  } catch (error) {
+    console.error('Generate review error:', error);
+    showToast('Review generation failed: ' + error.message, 'error');
+  } finally {
+    // Reset button state
+    btnGenerateReview.querySelector('.generate-review-icon').style.display = '';
+    btnGenerateReview.querySelector('.generate-review-spinner').style.display = 'none';
+    btnGenerateReview.querySelector('.generate-review-label').textContent = 'Generate Review';
+    await checkLLMReady();
+  }
+}
+
 // Toast notification
 function showToast(message, type = 'success') {
   const toast = document.createElement('div');
@@ -571,6 +639,9 @@ function setupEventListeners() {
   sortSelect.addEventListener('change', (e) => {
     annotationManager.setSortBy(e.target.value);
   });
+
+  // Generate Review
+  btnGenerateReview.addEventListener('click', generateReview);
 
   // Export
   btnExport.addEventListener('click', toggleExportMenu);
@@ -704,13 +775,10 @@ function setupEventListeners() {
       exportMenu.classList.remove('active');
     }
     // Close selection popup when clicking outside of it
-    // Exceptions:
-    // - Don't close if clicking inside the annotation modal (preserve pendingSelection)
-    // - Don't close if clicking in the PDF viewer (user might be selecting text)
-    const clickedInPdfViewer = e.target.closest('.pdf-viewer-container, .textLayer, .pdf-page');
-    if (!selectionPopup.contains(e.target) &&
-        !annotationModal.contains(e.target) &&
-        !clickedInPdfViewer) {
+    // Skip if popup was just shown this frame (selection mouseup + click fire together)
+    if (!popupJustShown &&
+        !selectionPopup.contains(e.target) &&
+        !annotationModal.contains(e.target)) {
       hideSelectionPopup();
     }
   });
@@ -786,7 +854,13 @@ function setupKeyboardShortcuts() {
       resizablePanels.toggleAnnotations();
     }
 
-    // Ctrl+\: Restore both panels
+    // Ctrl+/: Toggle search panel
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      e.preventDefault();
+      resizablePanels.toggleSearch();
+    }
+
+    // Ctrl+\: Restore all panels
     if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
       e.preventDefault();
       resizablePanels.restorePanels();

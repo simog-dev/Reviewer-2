@@ -377,8 +377,25 @@ export class PDFViewer {
   scrollToPage(pageNumber) {
     const pageElement = this.pageElements.get(pageNumber);
     if (pageElement) {
-      pageElement.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this._scrollElementIntoContainer(pageElement.container, 'start');
     }
+  }
+
+  // Scroll an element into view within this.container without affecting outer layout.
+  _scrollElementIntoContainer(element, block = 'center') {
+    const containerRect = this.container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const offset = elementRect.top - containerRect.top + this.container.scrollTop;
+
+    let target;
+    if (block === 'start') {
+      target = offset;
+    } else {
+      // center
+      target = offset - (containerRect.height - elementRect.height) / 2;
+    }
+
+    this.container.scrollTo({ top: target, behavior: 'smooth' });
   }
 
   setupSelectionListener() {
@@ -566,12 +583,12 @@ export class PDFViewer {
 
     // Scroll to the highlight itself so it lands in view regardless of zoom level
     if (highlights.length > 0) {
-      highlights[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      this._scrollElementIntoContainer(highlights[0], 'center');
     } else if (annotation) {
       // Fallback: scroll to the page placeholder even if highlight elements not found
       const elements = this.pageElements.get(annotation.page_number);
       if (elements) {
-        elements.container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this._scrollElementIntoContainer(elements.container, 'center');
       }
     }
   }

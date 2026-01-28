@@ -37,5 +37,6 @@ contextBridge.exposeInMainWorld('api', {
 
   // Navigation
   navigateToReview: (pdfId) => ipcRenderer.invoke('navigate:review', pdfId),
-  navigateToHome: () => ipcRenderer.invoke('navigate:home')
+  navigateToHome: () => ipcRenderer.invoke('navigate:home'),
+  navigateToSettings: () => ipcRenderer.invoke('navigate:settings')
 });

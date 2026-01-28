@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: file:; img-src 'self' data: blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: file:; img-src 'self' data: blob:; frame-src https:; connect-src 'self' https://generativelanguage.googleapis.com">
   <title>PDF Review</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/review.css">
@@ -116,7 +116,7 @@
       <!-- PDF Panel -->
       <div class="pdf-panel" id="pdf-panel">
         <span class="collapsed-indicator">PDF Viewer</span>
-        <button class="collapse-btn collapse-btn-left" id="collapse-pdf" title="Collapse PDF Panel (Ctrl+[)">
+        <button class="collapse-btn" id="collapse-pdf" title="Collapse PDF Panel (Ctrl+[)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
@@ -132,15 +132,15 @@
         </div>
       </div>
 
-      <!-- Panel Resizer -->
-      <div class="panel-resizer" id="panel-resizer"></div>
+      <!-- Panel Resizer 1 -->
+      <div class="panel-resizer" id="panel-resizer-1"></div>
 
       <!-- Annotation Panel -->
       <div class="annotation-panel" id="annotation-panel">
         <span class="collapsed-indicator">Annotations</span>
-        <button class="collapse-btn collapse-btn-right" id="collapse-annotations" title="Collapse Annotation Panel (Ctrl+])">
+        <button class="collapse-btn" id="collapse-annotations" title="Collapse Annotation Panel (Ctrl+])">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"/>
+            <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
         <div class="annotation-panel-content">
@@ -167,6 +167,37 @@
               </div>
             </div>
           </div>
+
+          <!-- Generate Review Button -->
+          <div class="generate-review-container">
+            <button class="btn btn-primary btn-generate-review" id="btn-generate-review" disabled data-tooltip="API key required — configure in Settings">
+              <span class="generate-review-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </span>
+              <span class="generate-review-label">Generate Review</span>
+              <span class="generate-review-spinner" style="display:none"><div class="spinner"></div></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Resizer 2 -->
+      <div class="panel-resizer" id="panel-resizer-2"></div>
+
+      <!-- Search Panel -->
+      <div class="search-panel" id="search-panel">
+        <span class="collapsed-indicator">Search</span>
+        <button class="collapse-btn" id="collapse-search" title="Collapse Search Panel (Ctrl+/)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <div class="search-panel-content">
+          <webview src="https://www.google.com" nodeintegration="false"></webview>
         </div>
       </div>
     </main>

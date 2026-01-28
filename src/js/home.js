@@ -29,6 +29,7 @@ const searchInput = document.getElementById('search-input');
 const dropZone = document.getElementById('drop-zone');
 const btnAddPdf = document.getElementById('btn-add-pdf');
 const btnAddPdfEmpty = document.getElementById('btn-add-pdf-empty');
+const btnSettings = document.getElementById('btn-settings');
 const toastContainer = document.getElementById('toast-container');
 
 // Delete Modal Elements
@@ -332,6 +333,9 @@ function escapeAttr(str) {
 
 // Event Listeners
 function setupEventListeners() {
+  // Settings button
+  btnSettings.addEventListener('click', () => window.api.navigateToSettings());
+
   // Add PDF buttons
   btnAddPdf.addEventListener('click', handleAddPDF);
   btnAddPdfEmpty.addEventListener('click', handleAddPDF);

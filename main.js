@@ -19,7 +19,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webviewTag: true
     },
     titleBarStyle: 'default',
     show: false
@@ -196,4 +197,8 @@ ipcMain.handle('navigate:review', async (event, pdfId) => {
 
 ipcMain.handle('navigate:home', async () => {
   mainWindow.loadFile('src/index.html');
+});
+
+ipcMain.handle('navigate:settings', async () => {
+  mainWindow.loadFile('src/settings.html');
 });
