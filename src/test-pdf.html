@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: file:; img-src 'self' data: blob:">
+  <title>PDF.js Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #0f0f0f;
+      color: #e5e5e5;
+    }
+    .log {
+      margin: 5px 0;
+      padding: 5px;
+      background: #1a1a1a;
+      border-left: 3px solid #3b82f6;
+    }
+    .error {
+      border-left-color: #ef4444;
+    }
+    .success {
+      border-left-color: #22c55e;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px 5px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    #canvas-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #333;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>PDF.js Loading Test</h1>
+  <p>This page tests PDF.js loading in the Electron renderer.</p>
+
+  <button onclick="testPDFJS()">Test PDF.js Import</button>
+  <button onclick="testWorkerPath()">Test Worker Path</button>
+  <button onclick="selectAndLoadPDF()">Select & Load PDF</button>
+
+  <div id="log"></div>
+  <div id="canvas-container"></div>
+
+  <script type="module">
+    window.log = function(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `log ${type}`;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      document.getElementById('log').appendChild(div);
+      console.log(message);
+    };
+
+    window.testPDFJS = async function() {
+      try {
+        log('Importing PDF.js...');
+        const pdfjsLib = await import('pdfjs-dist');
+        log(`✓ PDF.js loaded, version: ${pdfjsLib.version}`, 'success');
+        log(`GlobalWorkerOptions available: ${!!pdfjsLib.GlobalWorkerOptions}`, 'success');
+        return pdfjsLib;
+      } catch (error) {
+        log(`✗ Error loading PDF.js: ${error.message}`, 'error');
+        console.error(error);
+      }
+    };
+
+    window.testWorkerPath = async function() {
+      try {
+        const pdfjsLib = await testPDFJS();
+        if (!pdfjsLib) return;
+
+        const basePath = new URL('..', window.location.href).href;
+        const workerPath = `${basePath}node_modules/pdfjs-dist/build/pdf.worker.min.mjs`;
+
+        log(`Base path: ${basePath}`);
+        log(`Worker path: ${workerPath}`);
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+        log(`✓ Worker path set successfully`, 'success');
+
+        // Test if worker file exists
+        try {
+          const response = await fetch(workerPath);
+          if (response.ok) {
+            log(`✓ Worker file accessible (${response.status})`, 'success');
+          } else {
+            log(`✗ Worker file not accessible (${response.status})`, 'error');
+          }
+        } catch (fetchError) {
+          log(`✗ Cannot fetch worker: ${fetchError.message}`, 'error');
+        }
+      } catch (error) {
+        log(`✗ Error: ${error.message}`, 'error');
+        console.error(error);
+      }
+    };
+
+    window.selectAndLoadPDF = async function() {
+      try {
+        log('Opening file dialog...');
+        const filePath = await window.api.openPDFDialog();
+
+        if (!filePath) {
+          log('No file selected');
+          return;
+        }
+
+        log(`Selected file: ${filePath}`);
+
+        log('Reading file...');
+        const pdfData = await window.api.readPDFFile(filePath);
+        log(`File read: ${pdfData.length} bytes`);
+        log(`Data type: ${pdfData.constructor.name}`);
+
+        log('Loading PDF.js...');
+        const pdfjsLib = await import('pdfjs-dist');
+
+        const basePath = new URL('..', window.location.href).href;
+        const workerPath = `${basePath}node_modules/pdfjs-dist/build/pdf.worker.min.mjs`;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+        log(`Worker: ${workerPath}`);
+
+        // Ensure Uint8Array
+        let uint8Data = pdfData;
+        if (ArrayBuffer.isView(pdfData)) {
+          uint8Data = new Uint8Array(pdfData.buffer || pdfData);
+        } else if (pdfData instanceof ArrayBuffer) {
+          uint8Data = new Uint8Array(pdfData);
+        } else if (typeof pdfData === 'object' && pdfData.data) {
+          uint8Data = new Uint8Array(pdfData.data);
+        }
+
+        log(`Converted to Uint8Array: ${uint8Data.length} bytes`);
+
+        log('Loading PDF document...');
+        const loadingTask = pdfjsLib.getDocument({
+          data: uint8Data,
+          cMapUrl: '../node_modules/pdfjs-dist/cmaps/',
+          cMapPacked: true,
+        });
+
+        const pdf = await loadingTask.promise;
+        log(`✓ PDF loaded! Pages: ${pdf.numPages}`, 'success');
+
+        // Render first page
+        log('Rendering first page...');
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.0 });
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        document.getElementById('canvas-container').innerHTML = '';
+        document.getElementById('canvas-container').appendChild(canvas);
+
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+
+        log(`✓ Page rendered (${viewport.width}x${viewport.height})`, 'success');
+
+      } catch (error) {
+        log(`✗ Error: ${error.message}`, 'error');
+        console.error('Full error:', error);
+      }
+    };
+
+    // Auto-run basic tests on load
+    window.addEventListener('DOMContentLoaded', async () => {
+      log('Page loaded, running basic tests...');
+      await testPDFJS();
+      await testWorkerPath();
+      log('Tests complete. Click "Select & Load PDF" to test with a real PDF.');
+    });
+  </script>
+</body>
+</html>

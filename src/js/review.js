@@ -1,0 +1,809 @@
+import '../components/annotation-card.js';
+import '../components/category-filter.js';
+import { PDFViewer } from './pdf-viewer.js';
+import { AnnotationManager } from './annotation-manager.js';
+import { ResizablePanels } from './resizable-panels.js';
+import { getCategoryIcon, escapeHtml } from './utils.js';
+
+// State
+let pdfId = null;
+let pdfData = null;
+let pdfViewer = null;
+let annotationManager = null;
+let resizablePanels = null;
+let categories = [];
+let highlightMode = false;
+let pendingSelection = null;
+let editingAnnotationId = null;
+
+// DOM Elements
+const pdfTitle = document.getElementById('pdf-title');
+const pdfLoading = document.getElementById('pdf-loading');
+const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+const currentPageEl = document.getElementById('current-page');
+const totalPagesEl = document.getElementById('total-pages');
+const zoomSelect = document.getElementById('zoom-select');
+const btnZoomIn = document.getElementById('btn-zoom-in');
+const btnZoomOut = document.getElementById('btn-zoom-out');
+const btnHighlight = document.getElementById('btn-highlight');
+const btnBack = document.getElementById('btn-back');
+const sortSelect = document.getElementById('sort-select');
+const btnExport = document.getElementById('btn-export');
+const exportMenu = document.getElementById('export-menu');
+
+const annotationList = document.getElementById('annotation-list');
+const annotationListEmpty = document.getElementById('annotation-list-empty');
+const annotationCount = document.getElementById('annotation-count');
+const categoryFilters = document.getElementById('category-filters');
+
+const selectionPopup = document.getElementById('selection-popup');
+const categoryButtons = document.getElementById('category-buttons');
+
+const annotationModal = document.getElementById('annotation-modal');
+const modalTitle = document.getElementById('modal-title');
+const modalClose = document.getElementById('modal-close');
+const modalCancel = document.getElementById('modal-cancel');
+const modalSave = document.getElementById('modal-save');
+const selectedTextPreview = document.getElementById('selected-text-preview');
+const categoryBadge = document.getElementById('category-badge');
+const categorySelect = document.getElementById('category-select');
+const commentInput = document.getElementById('comment-input');
+
+const contextMenu = document.getElementById('context-menu');
+const categoryMenu = document.getElementById('category-menu');
+const toastContainer = document.getElementById('toast-container');
+
+// Initialize
+async function init() {
+  // Get PDF ID from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  pdfId = urlParams.get('id');
+
+  if (!pdfId) {
+    showToast('No PDF specified', 'error');
+    await window.api.navigateToHome();
+    return;
+  }
+
+  // Initialize managers
+  annotationManager = new AnnotationManager({
+    pdfId,
+    onAnnotationCreated: handleAnnotationCreated,
+    onAnnotationUpdated: handleAnnotationUpdated,
+    onAnnotationDeleted: handleAnnotationDeleted,
+    onAnnotationsFiltered: renderAnnotationList
+  });
+
+  // Initialize resizable panels
+  resizablePanels = new ResizablePanels({
+    pdfPanel: document.getElementById('pdf-panel'),
+    annotationPanel: document.getElementById('annotation-panel'),
+    resizer: document.getElementById('panel-resizer'),
+    container: document.querySelector('.main-content'),
+    onResize: () => {
+      // Trigger PDF re-render if needed
+    }
+  });
+
+  // Load data
+  await loadCategories();
+  await loadPDF();
+  await loadAnnotations();
+
+  setupEventListeners();
+  setupKeyboardShortcuts();
+}
+
+// Load categories
+async function loadCategories() {
+  categories = await annotationManager.loadCategories();
+  renderCategoryFilters();
+  renderCategoryButtons();
+  renderCategorySelect();
+  renderCategoryMenu();
+}
+
+// Load PDF
+async function loadPDF() {
+  try {
+    pdfData = await window.api.getPDF(pdfId);
+    if (!pdfData) {
+      showToast('PDF not found', 'error');
+      await window.api.navigateToHome();
+      return;
+    }
+
+    pdfTitle.textContent = pdfData.name;
+    pdfTitle.title = pdfData.path;
+
+    // Update last opened
+    await window.api.updatePDF(pdfId, { lastOpenedAt: new Date().toISOString() });
+
+    // Load PDF file
+    const fileData = await window.api.readPDFFile(pdfData.path);
+
+    // Initialize PDF viewer
+    pdfViewer = new PDFViewer(pdfViewerContainer, {
+      onPageChange: (page) => {
+        currentPageEl.textContent = page;
+      },
+      onTextSelected: handleTextSelected,
+      onHighlightClick: handleHighlightClick
+    });
+
+    const totalPages = await pdfViewer.load(fileData);
+    totalPagesEl.textContent = totalPages;
+
+    // Hide loading
+    pdfLoading.classList.add('hidden');
+  } catch (error) {
+    console.error('Error loading PDF:', error);
+    showToast('Failed to load PDF', 'error');
+  }
+}
+
+// Load annotations
+async function loadAnnotations() {
+  const annotations = await annotationManager.loadAnnotations();
+  pdfViewer.setAnnotations(annotationManager.annotations);
+  renderAnnotationList(annotations);
+  updateAnnotationCount();
+  updateCategoryFilterCounts();
+}
+
+// Render functions
+function renderCategoryFilters() {
+  categoryFilters.innerHTML = `
+    <category-filter
+      category-id="0"
+      name="All"
+      color="#3b82f6"
+      icon="info"
+      count="0"
+      active
+    ></category-filter>
+    ${categories.map(cat => `
+      <category-filter
+        category-id="${cat.id}"
+        name="${cat.name}"
+        color="${cat.color}"
+        icon="${cat.icon}"
+        count="0"
+      ></category-filter>
+    `).join('')}
+  `;
+}
+
+function renderCategoryButtons() {
+  categoryButtons.innerHTML = categories.map(cat => `
+    <button class="category-btn ${cat.name.toLowerCase()}"
+            data-category-id="${cat.id}"
+            title="${cat.name}"
+            style="background-color: ${cat.color}">
+      ${getCategoryIcon(cat.icon)}
+    </button>
+  `).join('');
+}
+
+function renderCategorySelect() {
+  categorySelect.innerHTML = categories.map(cat => `
+    <option value="${cat.id}">${cat.name}</option>
+  `).join('');
+}
+
+function renderCategoryMenu() {
+  categoryMenu.innerHTML = categories.map(cat => `
+    <div class="context-menu-item" data-category-id="${cat.id}" style="color: ${cat.color}">
+      ${getCategoryIcon(cat.icon)}
+      ${cat.name}
+    </div>
+  `).join('');
+}
+
+function renderAnnotationList(annotations) {
+  if (annotations.length === 0) {
+    annotationListEmpty.classList.remove('hidden');
+    annotationList.querySelectorAll('annotation-card').forEach(el => el.remove());
+    return;
+  }
+
+  annotationListEmpty.classList.add('hidden');
+
+  // Clear existing cards
+  annotationList.querySelectorAll('annotation-card').forEach(el => el.remove());
+
+  // Render cards
+  annotations.forEach(annotation => {
+    const card = document.createElement('annotation-card');
+    card.setAttribute('annotation-id', annotation.id);
+    card.setAttribute('category-name', annotation.category_name);
+    card.setAttribute('category-color', annotation.category_color);
+    card.setAttribute('category-icon', annotation.category_icon);
+    card.setAttribute('page-number', annotation.page_number);
+    card.setAttribute('selected-text', annotation.selected_text || '');
+    card.setAttribute('comment', annotation.comment || '');
+    card.setAttribute('created-at', annotation.created_at);
+
+    annotationList.appendChild(card);
+  });
+}
+
+function updateAnnotationCount() {
+  annotationCount.textContent = annotationManager.annotations.length;
+}
+
+function updateCategoryFilterCounts() {
+  const counts = annotationManager.getCategoryCounts();
+  const total = annotationManager.annotations.length;
+
+  // Update "All" filter
+  const allFilter = categoryFilters.querySelector('[category-id="0"]');
+  if (allFilter) {
+    allFilter.setAttribute('count', total);
+  }
+
+  // Update category filters
+  categories.forEach(cat => {
+    const filter = categoryFilters.querySelector(`[category-id="${cat.id}"]`);
+    if (filter) {
+      filter.setAttribute('count', counts[cat.id] || 0);
+    }
+  });
+}
+
+// Event handlers
+function handleTextSelected({ pageNumber, selectedText, rects, mouseX, mouseY }) {
+  console.log('handleTextSelected called:', { pageNumber, selectedText, rects: rects?.length });
+  if (!highlightMode) {
+    console.log('Highlight mode not enabled, ignoring');
+    return;
+  }
+
+  pendingSelection = { pageNumber, selectedText, rects };
+  console.log('pendingSelection set:', pendingSelection);
+
+  // Position and show popup
+  selectionPopup.style.left = `${mouseX}px`;
+  selectionPopup.style.top = `${mouseY + 10}px`;
+  selectionPopup.classList.add('active');
+  console.log('Selection popup shown');
+}
+
+function handleHighlightClick(annotation, event, isContextMenu = false) {
+  if (isContextMenu) {
+    showContextMenu(annotation, event.clientX, event.clientY);
+  } else {
+    scrollToAnnotationCard(annotation.id);
+  }
+}
+
+function handleAnnotationCreated(annotation) {
+  console.log('handleAnnotationCreated called with:', annotation);
+  console.log('Total annotations:', annotationManager.annotations.length);
+  pdfViewer.setAnnotations(annotationManager.annotations);
+  renderAnnotationList(annotationManager.getFilteredAndSorted());
+  updateAnnotationCount();
+  updateCategoryFilterCounts();
+
+  // Flash the newly created highlight
+  setTimeout(() => {
+    pdfViewer.highlightAnnotation(annotation.id);
+  }, 100);
+
+  showToast('Annotation created', 'success');
+}
+
+function handleAnnotationUpdated(annotation) {
+  pdfViewer.setAnnotations(annotationManager.annotations);
+  renderAnnotationList(annotationManager.getFilteredAndSorted());
+  updateCategoryFilterCounts();
+  showToast('Annotation updated', 'success');
+}
+
+function handleAnnotationDeleted(annotationId) {
+  pdfViewer.setAnnotations(annotationManager.annotations);
+  renderAnnotationList(annotationManager.getFilteredAndSorted());
+  updateAnnotationCount();
+  updateCategoryFilterCounts();
+  showToast('Annotation deleted', 'success');
+}
+
+// UI Actions
+function toggleHighlightMode() {
+  highlightMode = !highlightMode;
+  btnHighlight.classList.toggle('active', highlightMode);
+  pdfViewer.setHighlightMode(highlightMode);
+
+  if (!highlightMode) {
+    hideSelectionPopup();
+  }
+}
+
+function hideSelectionPopup() {
+  selectionPopup.classList.remove('active');
+  pendingSelection = null;
+  pdfViewer.clearSelection();
+}
+
+function showAnnotationModal(categoryId) {
+  if (!pendingSelection) return;
+
+  const category = categories.find(c => c.id === categoryId);
+  if (!category) return;
+
+  // Hide selection popup visually (but keep pendingSelection)
+  selectionPopup.classList.remove('active');
+
+  modalTitle.textContent = editingAnnotationId ? 'Edit Annotation' : 'Add Annotation';
+  selectedTextPreview.textContent = pendingSelection.selectedText;
+  categoryBadge.textContent = category.name;
+  categoryBadge.style.backgroundColor = category.color;
+  categorySelect.value = categoryId;
+  commentInput.value = '';
+
+  if (editingAnnotationId) {
+    const annotation = annotationManager.getAnnotation(editingAnnotationId);
+    if (annotation) {
+      commentInput.value = annotation.comment || '';
+    }
+  }
+
+  annotationModal.classList.add('active');
+  commentInput.focus();
+}
+
+function hideAnnotationModal() {
+  annotationModal.classList.remove('active');
+  hideSelectionPopup();
+  editingAnnotationId = null;
+}
+
+async function saveAnnotation() {
+  console.log('saveAnnotation called');
+  console.log('editingAnnotationId:', editingAnnotationId);
+  console.log('pendingSelection:', pendingSelection);
+
+  try {
+    if (editingAnnotationId) {
+      // Update existing
+      console.log('Updating existing annotation:', editingAnnotationId);
+      await annotationManager.updateAnnotation(editingAnnotationId, {
+        categoryId: parseInt(categorySelect.value, 10),
+        comment: commentInput.value.trim()
+      });
+    } else if (pendingSelection) {
+      // Create new
+      console.log('Creating new annotation with:', {
+        categoryId: parseInt(categorySelect.value, 10),
+        pageNumber: pendingSelection.pageNumber,
+        selectedText: pendingSelection.selectedText,
+        comment: commentInput.value.trim(),
+        highlightRects: pendingSelection.rects
+      });
+      const result = await annotationManager.createAnnotation({
+        categoryId: parseInt(categorySelect.value, 10),
+        pageNumber: pendingSelection.pageNumber,
+        selectedText: pendingSelection.selectedText,
+        comment: commentInput.value.trim(),
+        highlightRects: pendingSelection.rects
+      });
+      console.log('Annotation created:', result);
+    } else {
+      console.log('No editingAnnotationId or pendingSelection - nothing to save');
+    }
+  } catch (error) {
+    console.error('Error saving annotation:', error);
+    showToast('Failed to save annotation: ' + error.message, 'error');
+    return;
+  }
+
+  hideAnnotationModal();
+}
+
+function scrollToAnnotationCard(annotationId) {
+  // Remove active from all cards
+  annotationList.querySelectorAll('annotation-card').forEach(card => {
+    card.setActive(false);
+  });
+
+  // Find and activate the target card
+  const targetCard = annotationList.querySelector(`[annotation-id="${annotationId}"]`);
+  if (targetCard) {
+    targetCard.setActive(true);
+    targetCard.flash();
+    // Scroll the card into view
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function scrollToHighlight(annotationId) {
+  pdfViewer.highlightAnnotation(annotationId);
+}
+
+function showContextMenu(annotation, x, y) {
+  contextMenu.classList.remove('hidden');
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+  contextMenu.dataset.annotationId = annotation.id;
+
+  // Ensure menu is within viewport
+  const rect = contextMenu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+    contextMenu.style.left = `${x - rect.width}px`;
+  }
+  if (rect.bottom > window.innerHeight) {
+    contextMenu.style.top = `${y - rect.height}px`;
+  }
+}
+
+function hideContextMenu() {
+  contextMenu.classList.add('hidden');
+  categoryMenu.classList.add('hidden');
+}
+
+function showCategoryMenu(x, y) {
+  categoryMenu.classList.remove('hidden');
+  categoryMenu.style.left = `${x}px`;
+  categoryMenu.style.top = `${y}px`;
+}
+
+async function handleContextMenuAction(action, annotationId) {
+  hideContextMenu();
+
+  const annotation = annotationManager.getAnnotation(annotationId);
+  if (!annotation) return;
+
+  switch (action) {
+    case 'edit':
+      editingAnnotationId = annotationId;
+      pendingSelection = {
+        selectedText: annotation.selected_text,
+        rects: annotation.highlight_rects,
+        pageNumber: annotation.page_number
+      };
+      showAnnotationModal(annotation.category_id);
+      break;
+
+    case 'change-category':
+      const rect = contextMenu.getBoundingClientRect();
+      showCategoryMenu(rect.right + 5, rect.top);
+      categoryMenu.dataset.annotationId = annotationId;
+      break;
+
+    case 'delete':
+      if (confirm('Delete this annotation?')) {
+        await annotationManager.deleteAnnotation(annotationId);
+      }
+      break;
+  }
+}
+
+async function changeCategoryFromMenu(categoryId, annotationId) {
+  hideContextMenu();
+  await annotationManager.updateAnnotation(annotationId, { categoryId });
+}
+
+// Export functions
+function toggleExportMenu() {
+  exportMenu.classList.toggle('active');
+}
+
+async function exportAnnotations(format) {
+  exportMenu.classList.remove('active');
+
+  try {
+    let content, defaultName, filters;
+
+    if (format === 'json') {
+      content = await annotationManager.exportAsJSON();
+      defaultName = `${pdfData.name.replace('.pdf', '')}_annotations.json`;
+      filters = [{ name: 'JSON Files', extensions: ['json'] }];
+    } else {
+      content = await annotationManager.exportAsCSV();
+      defaultName = `${pdfData.name.replace('.pdf', '')}_annotations.csv`;
+      filters = [{ name: 'CSV Files', extensions: ['csv'] }];
+    }
+
+    const result = await window.api.saveFile({ defaultName, filters, content });
+
+    if (result.success) {
+      showToast(`Exported to ${result.filePath}`, 'success');
+    } else if (!result.canceled) {
+      showToast('Export failed', 'error');
+    }
+  } catch (error) {
+    console.error('Export error:', error);
+    showToast('Export failed', 'error');
+  }
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-message">${escapeHtml(message)}</span>
+    <button class="toast-close" aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  `;
+
+  toastContainer.appendChild(toast);
+
+  const closeBtn = toast.querySelector('.toast-close');
+  closeBtn.addEventListener('click', () => toast.remove());
+
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.remove();
+    }
+  }, 4000);
+}
+
+// Event Listeners
+function setupEventListeners() {
+  // Navigation
+  btnBack.addEventListener('click', () => window.api.navigateToHome());
+
+  // Zoom controls
+  btnZoomIn.addEventListener('click', async () => {
+    await pdfViewer.zoomIn();
+    updateZoomSelect();
+  });
+
+  btnZoomOut.addEventListener('click', async () => {
+    await pdfViewer.zoomOut();
+    updateZoomSelect();
+  });
+
+  zoomSelect.addEventListener('change', async (e) => {
+    const value = e.target.value;
+    await pdfViewer.setScale(value === 'fit-width' ? value : parseFloat(value));
+  });
+
+  // Highlight mode
+  btnHighlight.addEventListener('click', toggleHighlightMode);
+
+  // Sort
+  sortSelect.addEventListener('change', (e) => {
+    annotationManager.setSortBy(e.target.value);
+  });
+
+  // Export
+  btnExport.addEventListener('click', toggleExportMenu);
+
+  exportMenu.querySelectorAll('.export-menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      exportAnnotations(item.dataset.format);
+    });
+  });
+
+  // Category buttons in selection popup
+  categoryButtons.addEventListener('click', (e) => {
+    const btn = e.target.closest('.category-btn');
+    if (btn) {
+      const categoryId = parseInt(btn.dataset.categoryId, 10);
+      // Show modal first, then hide popup
+      // (hideSelectionPopup clears pendingSelection, so call it after)
+      showAnnotationModal(categoryId);
+    }
+  });
+
+  // Category filters
+  categoryFilters.addEventListener('filter-change', (e) => {
+    const { categoryId, active } = e.detail;
+    const clickedFilter = categoryFilters.querySelector(`[category-id="${categoryId}"]`);
+
+    if (categoryId === 0) {
+      // "All" filter - clear all filters
+      annotationManager.clearFilters();
+      categoryFilters.querySelectorAll('category-filter').forEach(filter => {
+        const id = parseInt(filter.getAttribute('category-id'), 10);
+        if (id === 0) {
+          filter.setAttribute('active', '');
+        } else {
+          filter.removeAttribute('active');
+        }
+      });
+    } else {
+      // Category filter - toggle it
+      annotationManager.toggleFilter(categoryId);
+
+      // Sync the component's active state with the actual filter state
+      const isActive = annotationManager.activeFilters.has(categoryId);
+      if (isActive) {
+        clickedFilter.setAttribute('active', '');
+      } else {
+        clickedFilter.removeAttribute('active');
+      }
+
+      // Update "All" filter state
+      const allFilter = categoryFilters.querySelector('[category-id="0"]');
+      if (allFilter) {
+        if (annotationManager.activeFilters.size === 0) {
+          allFilter.setAttribute('active', '');
+        } else {
+          allFilter.removeAttribute('active');
+        }
+      }
+    }
+  });
+
+  // Annotation modal
+  modalClose.addEventListener('click', hideAnnotationModal);
+  modalCancel.addEventListener('click', hideAnnotationModal);
+  modalSave.addEventListener('click', saveAnnotation);
+
+  annotationModal.addEventListener('click', (e) => {
+    if (e.target === annotationModal) hideAnnotationModal();
+  });
+
+  categorySelect.addEventListener('change', () => {
+    const category = categories.find(c => c.id === parseInt(categorySelect.value, 10));
+    if (category) {
+      categoryBadge.textContent = category.name;
+      categoryBadge.style.backgroundColor = category.color;
+    }
+  });
+
+  // Annotation card events
+  document.addEventListener('annotation-click', (e) => {
+    const { id } = e.detail;
+    scrollToHighlight(id);
+  });
+
+  document.addEventListener('annotation-edit', (e) => {
+    const { id } = e.detail;
+    const annotation = annotationManager.getAnnotation(id);
+    if (annotation) {
+      editingAnnotationId = id;
+      pendingSelection = {
+        selectedText: annotation.selected_text,
+        rects: annotation.highlight_rects,
+        pageNumber: annotation.page_number
+      };
+      showAnnotationModal(annotation.category_id);
+    }
+  });
+
+  document.addEventListener('annotation-delete', async (e) => {
+    const { id } = e.detail;
+    if (confirm('Delete this annotation?')) {
+      await annotationManager.deleteAnnotation(id);
+    }
+  });
+
+  // Context menu
+  contextMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.context-menu-item');
+    if (item) {
+      const action = item.dataset.action;
+      const annotationId = contextMenu.dataset.annotationId;
+      handleContextMenuAction(action, annotationId);
+    }
+  });
+
+  categoryMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.context-menu-item');
+    if (item) {
+      const categoryId = parseInt(item.dataset.categoryId, 10);
+      const annotationId = categoryMenu.dataset.annotationId;
+      changeCategoryFromMenu(categoryId, annotationId);
+    }
+  });
+
+  // Close menus on outside click
+  document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target) && !categoryMenu.contains(e.target)) {
+      hideContextMenu();
+    }
+    if (!btnExport.contains(e.target) && !exportMenu.contains(e.target)) {
+      exportMenu.classList.remove('active');
+    }
+    // Close selection popup when clicking outside of it
+    // Exceptions:
+    // - Don't close if clicking inside the annotation modal (preserve pendingSelection)
+    // - Don't close if clicking in the PDF viewer (user might be selecting text)
+    const clickedInPdfViewer = e.target.closest('.pdf-viewer-container, .textLayer, .pdf-page');
+    if (!selectionPopup.contains(e.target) &&
+        !annotationModal.contains(e.target) &&
+        !clickedInPdfViewer) {
+      hideSelectionPopup();
+    }
+  });
+}
+
+function updateZoomSelect() {
+  const scale = pdfViewer.getScale();
+
+  // Find the closest matching option
+  const options = Array.from(zoomSelect.options).filter(opt => opt.value !== 'fit-width');
+  let closestOption = options[0];
+  let closestDiff = Math.abs(parseFloat(options[0].value) - scale);
+
+  for (const option of options) {
+    const diff = Math.abs(parseFloat(option.value) - scale);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestOption = option;
+    }
+  }
+
+  if (closestOption && closestDiff < 0.1) {
+    zoomSelect.value = closestOption.value;
+  }
+}
+
+// Keyboard shortcuts
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Don't trigger shortcuts when typing in input fields
+    if (e.target.matches('input, textarea, select')) {
+      if (e.key === 'Escape') {
+        e.target.blur();
+      }
+      return;
+    }
+
+    // Ctrl+O: Go back to home (open new PDF)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      e.preventDefault();
+      window.api.navigateToHome();
+    }
+
+    // Ctrl+F: Focus PDF search (built-in)
+    // Let default behavior happen
+
+    // H: Toggle highlight mode
+    if (e.key === 'h' || e.key === 'H') {
+      e.preventDefault();
+      toggleHighlightMode();
+    }
+
+    // Escape: Close modal/deselect
+    if (e.key === 'Escape') {
+      if (annotationModal.classList.contains('active')) {
+        hideAnnotationModal();
+      } else if (selectionPopup.classList.contains('active')) {
+        hideSelectionPopup();
+      } else if (!contextMenu.classList.contains('hidden')) {
+        hideContextMenu();
+      }
+    }
+
+    // Ctrl+[: Collapse PDF panel
+    if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+      e.preventDefault();
+      resizablePanels.togglePdf();
+    }
+
+    // Ctrl+]: Collapse annotation panel
+    if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+      e.preventDefault();
+      resizablePanels.toggleAnnotations();
+    }
+
+    // Ctrl+\: Restore both panels
+    if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+      e.preventDefault();
+      resizablePanels.restorePanels();
+    }
+
+    // Ctrl+- / Ctrl+=: Zoom
+    if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
+      e.preventDefault();
+      pdfViewer.zoomOut().then(updateZoomSelect);
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+      e.preventDefault();
+      pdfViewer.zoomIn().then(updateZoomSelect);
+    }
+  });
+}
+
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run test:pdf:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

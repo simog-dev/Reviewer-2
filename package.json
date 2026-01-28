@@ -1,0 +1,62 @@
+{
+  "name": "pdf-reviewer",
+  "version": "1.0.0",
+  "description": "Cross-platform Electron desktop app for PDF annotation with categorized comments",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "rebuild": "@electron/rebuild -f -w better-sqlite3",
+    "postinstall": "@electron/rebuild -f -w better-sqlite3 || true",
+    "test": "node tests/run-all-tests.js",
+    "test:install": "node tests/install.test.js",
+    "test:unit": "node tests/unit/run-unit-tests.js",
+    "test:e2e": "npx playwright test --config playwright.config.js",
+    "test:e2e:headed": "npx playwright test --config playwright.config.js --headed",
+    "test:report": "node tests/generate-report.js",
+    "test:pdf": "node tests/pdf-loading.test.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "pdfjs-dist": "^4.9.155",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "@electron/rebuild": "^3.7.1",
+    "@playwright/test": "^1.49.1",
+    "playwright": "^1.49.1"
+  },
+  "build": {
+    "appId": "com.pdf-reviewer.app",
+    "productName": "PDF Reviewer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office"
+    }
+  }
+}

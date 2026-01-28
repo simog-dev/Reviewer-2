@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: file:; img-src 'self' data: blob:">
+  <title>PDF Reviewer</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+  <div class="home-container">
+    <!-- Header -->
+    <header class="home-header">
+      <h1 class="home-title">PDF Reviewer</h1>
+      <div class="header-actions">
+        <div class="search-container">
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </span>
+          <input
+            type="text"
+            id="search-input"
+            class="input search-input"
+            placeholder="Search PDFs..."
+            aria-label="Search PDFs"
+          >
+        </div>
+        <button id="btn-add-pdf" class="btn btn-primary btn-add-pdf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content / Drop Zone -->
+    <main class="drop-zone" id="drop-zone">
+      <!-- Loading State -->
+      <div class="home-loading" id="loading-state">
+        <div class="spinner spinner-lg"></div>
+        <span class="loading-text">Loading PDFs...</span>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state hidden" id="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+        <h2 class="empty-state-title">No PDFs yet</h2>
+        <p class="empty-state-text">
+          Drag and drop a PDF file here, or click the "Add PDF" button to get started.
+        </p>
+        <button class="btn btn-primary btn-add-pdf" id="btn-add-pdf-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add PDF
+        </button>
+      </div>
+
+      <!-- PDF Grid -->
+      <div class="pdf-grid hidden" id="pdf-grid"></div>
+    </main>
+
+    <!-- Pagination -->
+    <div class="pagination hidden" id="pagination">
+      <button class="btn btn-secondary pagination-btn" id="btn-prev" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Previous
+      </button>
+      <span class="pagination-info" id="pagination-info">Page 1 of 1</span>
+      <button class="btn btn-secondary pagination-btn" id="btn-next" disabled>
+        Next
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Remove PDF</h3>
+        <button class="modal-close" id="delete-modal-close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="delete-modal-content">
+          <svg class="delete-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <h4 class="delete-modal-title">Remove "<span id="delete-pdf-name"></span>"?</h4>
+          <p class="delete-modal-text">
+            This will remove the PDF from your list. The original file will not be deleted.
+          </p>
+          <label class="delete-modal-checkbox">
+            <input type="checkbox" id="delete-annotations-checkbox" checked>
+            Also delete all annotations
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="delete-modal-cancel">Cancel</button>
+        <button class="btn btn-danger" id="delete-modal-confirm">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script type="module" src="js/home.js"></script>
+</body>
+</html>
