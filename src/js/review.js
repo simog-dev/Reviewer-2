@@ -642,6 +642,13 @@ function setupEventListeners() {
     await pdfViewer.setScale(value === 'fit-width' ? value : parseFloat(value));
   });
 
+  // Dual page mode
+  const btnDualPage = document.getElementById('btn-dual-page');
+  btnDualPage.addEventListener('click', () => {
+    btnDualPage.classList.toggle('active');
+    pdfViewer.setDualPageMode(btnDualPage.classList.contains('active'));
+  });
+
   // Highlight mode
   btnHighlight.addEventListener('click', toggleHighlightMode);
 
@@ -914,6 +921,13 @@ function setupKeyboardShortcuts() {
 
     // Ctrl+F: Focus PDF search (built-in)
     // Let default behavior happen
+
+    // D: Toggle dual page mode
+    if (e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
+      const btnDualPage = document.getElementById('btn-dual-page');
+      btnDualPage.click();
+    }
 
     // H: Toggle highlight mode
     if (e.key === 'h' || e.key === 'H') {

@@ -87,6 +87,33 @@
   justify-content: center;
 }
 
+/* Dual Page Toggle */
+.btn-dual-page svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-dual-page.active {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-dual-page.active:hover {
+  background-color: var(--color-primary-hover);
+  color: white;
+}
+
+/* Dual Page Spread */
+.pdf-page-spread {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.pdf-page-spread .pdf-page {
+  margin: 0;
+}
+
 /* Highlight Mode Toggle */
 .btn-highlight {
   position: relative;

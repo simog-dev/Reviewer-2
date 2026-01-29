@@ -44,6 +44,7 @@ export class PDFViewer {
     this.highlightModeEnabled = false;
     this.annotations = [];
     this.observer = null;
+    this.dualPageMode = false;
 
     this.init();
   }
@@ -135,6 +136,7 @@ export class PDFViewer {
       pageContainer.appendChild(canvas);
       pageContainer.appendChild(highlightCanvas);
       pageContainer.appendChild(textLayerDiv);
+      // Append to viewer; rebuildLayout will reorganize if dual mode
       this.viewerElement.appendChild(pageContainer);
 
       this.pageElements.set(i, {
@@ -220,6 +222,73 @@ export class PDFViewer {
         textLayerDiv.classList.remove('over-highlight');
       });
     }
+
+    // Organize into spreads if dual page mode is active
+    if (this.dualPageMode) {
+      this.rebuildLayout();
+    }
+  }
+
+  setDualPageMode(enabled) {
+    if (this.dualPageMode === enabled) return;
+    this.dualPageMode = enabled;
+    if (this.totalPages === 0) return;
+
+    const scrollRatio = this.container.scrollTop / this.container.scrollHeight;
+    this.rebuildLayout();
+    this.container.scrollTop = scrollRatio * this.container.scrollHeight;
+  }
+
+  rebuildLayout() {
+    // Remove all children from viewer without destroying pageContainers
+    // First remove any existing spread wrappers
+    this.viewerElement.querySelectorAll('.pdf-page-spread').forEach(s => {
+      // Move children back out before removing spread
+      while (s.firstChild) {
+        this.viewerElement.appendChild(s.firstChild);
+      }
+      s.remove();
+    });
+
+    // Detach all page containers
+    const pages = [];
+    this.pageElements.forEach((elements, pageNumber) => {
+      pages.push({ pageNumber, container: elements.container });
+    });
+    pages.sort((a, b) => a.pageNumber - b.pageNumber);
+    pages.forEach(p => p.container.remove());
+
+    if (!this.dualPageMode) {
+      // Single page: append directly
+      pages.forEach(p => this.viewerElement.appendChild(p.container));
+    } else {
+      // Dual page: page 1 alone, then pairs [2,3], [4,5], ...
+      let i = 0;
+      while (i < pages.length) {
+        const spread = document.createElement('div');
+        spread.className = 'pdf-page-spread';
+
+        if (i === 0) {
+          // First page alone
+          spread.appendChild(pages[i].container);
+          i++;
+        } else {
+          spread.appendChild(pages[i].container);
+          i++;
+          if (i < pages.length) {
+            spread.appendChild(pages[i].container);
+            i++;
+          }
+        }
+
+        this.viewerElement.appendChild(spread);
+      }
+    }
+
+    // Recreate observer
+    this.destroyObserver();
+    this.setupObserver();
+    this.renderVisiblePages();
   }
 
   setupObserver() {
@@ -344,7 +413,12 @@ export class PDFViewer {
       const page = this.pages[0];
       if (page) {
         const viewport = page.getViewport({ scale: 1 });
-        newScale = containerWidth / viewport.width;
+        if (this.dualPageMode) {
+          // Two pages + gap (16px)
+          newScale = (containerWidth - 16) / (viewport.width * 2);
+        } else {
+          newScale = containerWidth / viewport.width;
+        }
       } else {
         newScale = 1;
       }
