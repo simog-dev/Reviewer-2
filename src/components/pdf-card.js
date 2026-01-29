@@ -163,7 +163,7 @@ class PDFCard extends HTMLElement {
           transition: all 150ms ease;
         }
 
-        .card:hover .delete-btn {
+        .card-wrapper:hover .delete-btn {
           opacity: 1;
         }
 

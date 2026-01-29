@@ -23,6 +23,13 @@ class DBManager {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     this.db.exec(schema);
+
+    // Add 'removed' column for soft-delete (preserves annotations)
+    try {
+      this.db.exec(`ALTER TABLE pdfs ADD COLUMN removed INTEGER DEFAULT 0`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
   }
 
   prepareStatements() {
@@ -37,6 +44,7 @@ class DBManager {
         SELECT p.*,
                (SELECT COUNT(*) FROM annotations WHERE pdf_id = p.id) as annotation_count
         FROM pdfs p
+        WHERE p.removed = 0
         ORDER BY p.updated_at DESC
       `),
       getPDF: this.db.prepare(`
@@ -58,9 +66,12 @@ class DBManager {
         SELECT p.*,
                (SELECT COUNT(*) FROM annotations WHERE pdf_id = p.id) as annotation_count
         FROM pdfs p
-        WHERE p.name LIKE ?
+        WHERE p.removed = 0 AND p.name LIKE ?
         ORDER BY p.updated_at DESC
       `),
+      softDeletePDF: this.db.prepare(`UPDATE pdfs SET removed = 1, updated_at = datetime('now') WHERE id = ?`),
+      restorePDF: this.db.prepare(`UPDATE pdfs SET removed = 0, updated_at = datetime('now') WHERE id = ?`),
+      findRemovedPDFByPath: this.db.prepare(`SELECT * FROM pdfs WHERE path = ? AND removed = 1`),
 
       // Annotations
       insertAnnotation: this.db.prepare(`
@@ -113,6 +124,15 @@ class DBManager {
 
   // PDF Methods
   addPDF(pdfData) {
+    // Check if this PDF was soft-deleted (removed but annotations kept)
+    const removed = this.stmts.findRemovedPDFByPath.get(pdfData.path);
+    if (removed) {
+      // Restore it — same ID, so all annotations are still linked
+      this.stmts.restorePDF.run(removed.id);
+      this.updatePDF(removed.id, { lastOpenedAt: new Date().toISOString() });
+      return this.getPDF(removed.id);
+    }
+
     const id = uuidv4();
     const data = {
       id,
@@ -157,9 +177,13 @@ class DBManager {
 
   deletePDF(id, deleteAnnotations = true) {
     if (deleteAnnotations) {
+      // Hard delete: remove annotations then PDF row (CASCADE would also work)
       this.stmts.deleteAnnotationsForPDF.run(id);
+      return this.stmts.deletePDF.run(id);
+    } else {
+      // Soft delete: hide the PDF but keep annotations intact
+      return this.stmts.softDeletePDF.run(id);
     }
-    return this.stmts.deletePDF.run(id);
   }
 
   searchPDFs(query) {

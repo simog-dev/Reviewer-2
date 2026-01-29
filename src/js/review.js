@@ -333,9 +333,13 @@ function toggleHighlightMode() {
 }
 
 function hideSelectionPopup() {
+  const wasActive = selectionPopup.classList.contains('active');
   selectionPopup.classList.remove('active');
   pendingSelection = null;
-  pdfViewer.clearSelection();
+  // Only clear text selection if the popup was showing (highlight mode flow)
+  if (wasActive) {
+    pdfViewer.clearSelection();
+  }
 }
 
 function showAnnotationModal(categoryId) {

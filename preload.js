@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   openPDFDialog: () => ipcRenderer.invoke('dialog:openPDF'),
   readPDFFile: (filePath) => ipcRenderer.invoke('pdf:readFile', filePath),
   getPDFMetadata: (filePath) => ipcRenderer.invoke('pdf:getMetadata', filePath),
+  addPDFFromData: (name, data) => ipcRenderer.invoke('pdf:addFromData', name, data),
 
   // Database Operations - PDFs
   addPDF: (pdfData) => ipcRenderer.invoke('db:addPDF', pdfData),

@@ -161,6 +161,32 @@ export class PDFViewer {
           this.onHighlightClick(hitAnnotation, e);
         }
       });
+
+      // Cursor hit-test: show pointer when hovering over a highlight
+      textLayerDiv.addEventListener('mousemove', (e) => {
+        if (this.highlightModeEnabled) {
+          textLayerDiv.classList.remove('over-highlight');
+          return;
+        }
+
+        const pageRect = pageContainer.getBoundingClientRect();
+        const mx = (e.clientX - pageRect.left) / this.scale;
+        const my = (e.clientY - pageRect.top) / this.scale;
+
+        const overHighlight = this.annotations.some(ann => {
+          if (ann.page_number !== pageNumber) return false;
+          return ann.highlight_rects.some(rect =>
+            mx >= rect.left && mx <= rect.left + rect.width &&
+            my >= rect.top && my <= rect.top + rect.height
+          );
+        });
+
+        textLayerDiv.classList.toggle('over-highlight', overHighlight);
+      });
+
+      textLayerDiv.addEventListener('mouseleave', () => {
+        textLayerDiv.classList.remove('over-highlight');
+      });
     }
   }
 
@@ -478,7 +504,6 @@ export class PDFViewer {
 
   setHighlightMode(enabled) {
     this.highlightModeEnabled = enabled;
-    this.container.style.cursor = enabled ? 'text' : 'default';
 
     // When in highlight mode, disable pointer events on highlights to allow text selection
     // When not in highlight mode, enable pointer events so highlights are clickable

@@ -1,4 +1,4 @@
-const DEFAULT_PROMPT = `You are a thorough code reviewer. Based on the annotations below from a PDF review, generate a comprehensive written review report. Group findings by severity (Critical first, then Major, Minor, Suggestion, Question). For each finding, reference the page number and quoted text. Be specific, constructive, and actionable. End with a brief summary of overall quality.`;
+const DEFAULT_PROMPT = `You are a thorough academic paper reviewer. Based on the annotations below from a paper I'm reviewing, generate a comprehensive written review. Group findings by severity (Critical first, then Major, Minor, Suggestion, Question). For each finding, reference the page number and quoted text. Be specific, constructive, and actionable. End with a brief summary of overall quality. Output plain text, no markdown.`;
 
 const SETTING_KEYS = ['llm_api_key', 'llm_provider', 'llm_model', 'llm_temperature', 'llm_prompt'];
 

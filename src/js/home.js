@@ -278,12 +278,31 @@ async function handleDrop(e) {
     return;
   }
 
-  // Process first PDF file
   const file = pdfFiles[0];
+
+  // If file.path is available (non-sandboxed), use it directly
+  if (file.path) {
+    try {
+      await addPDFFromPath(file.path);
+      return;
+    } catch (error) {
+      console.error('Error adding PDF from path:', error);
+      showToast('Failed to add PDF: ' + error.message, 'error');
+      return;
+    }
+  }
+
+  // Otherwise read file data via FileReader and send to main process
   try {
-    await addPDFFromPath(file.path);
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+
+    // Save file to app storage via main process, get back the path
+    const savedPath = await window.api.addPDFFromData(file.name, data);
+    await addPDFFromPath(savedPath);
   } catch (error) {
-    showToast('Failed to add PDF', 'error');
+    console.error('Error adding dropped PDF:', error);
+    showToast('Failed to add PDF: ' + error.message, 'error');
   }
 }
 

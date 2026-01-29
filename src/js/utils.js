@@ -45,7 +45,13 @@ export function formatDate(date, includeTime = false) {
  * @returns {string} Relative time string
  */
 export function formatRelativeTime(date) {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  let d;
+  if (typeof date === 'string') {
+    // SQLite datetime('now') returns UTC without timezone suffix — append 'Z'
+    d = new Date(date.endsWith('Z') || date.includes('+') ? date : date + 'Z');
+  } else {
+    d = date;
+  }
   const now = new Date();
   const diffMs = now - d;
   const diffSecs = Math.floor(diffMs / 1000);

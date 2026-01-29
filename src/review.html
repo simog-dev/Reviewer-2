@@ -69,16 +69,6 @@
       </div>
 
       <div class="toolbar-right">
-        <!-- Sort Dropdown -->
-        <div class="sort-container">
-          <span class="sort-label">Sort:</span>
-          <select class="select sort-select" id="sort-select" title="Sort Annotations">
-            <option value="page" selected>By Page</option>
-            <option value="date">By Date</option>
-            <option value="category">By Category</option>
-          </select>
-        </div>
-
         <!-- Export Button -->
         <div style="position: relative;">
           <button class="btn btn-secondary btn-export" id="btn-export" title="Export Annotations">
@@ -148,6 +138,13 @@
           <div class="annotation-panel-header">
             <h2 class="annotation-panel-title">Annotations</h2>
             <span class="annotation-count" id="annotation-count">0</span>
+            <div class="sort-container">
+              <select class="select sort-select" id="sort-select" title="Sort Annotations">
+                <option value="page" selected>By Page</option>
+                <option value="date">By Date</option>
+                <option value="category">By Category</option>
+              </select>
+            </div>
           </div>
 
           <!-- Category Filters -->

@@ -92,8 +92,22 @@
   position: relative;
 }
 
+.btn-highlight:focus {
+  outline: none;
+}
+
+.btn-highlight:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
 .btn-highlight.active {
   background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-highlight.active:hover {
+  background-color: var(--color-primary-hover);
   color: white;
 }
 
@@ -232,6 +246,7 @@
   position: relative;
 }
 
+
 /* PDF.js Viewer Styles */
 .pdf-viewer {
   display: flex;
@@ -272,6 +287,11 @@
   transform-origin: 0% 0%;
 }
 
+.textLayer.over-highlight,
+.textLayer.over-highlight span {
+  cursor: pointer;
+}
+
 .textLayer .highlight {
   margin: -1px;
   padding: 1px;
@@ -284,7 +304,7 @@
 }
 
 .textLayer ::selection {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.6);
 }
 
 /* Custom Highlight Layer */
@@ -372,10 +392,20 @@
 .annotation-panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--spacing-sm);
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+}
+
+.annotation-panel-header .sort-container {
+  margin-left: auto;
+}
+
+.annotation-panel-header .sort-select {
+  width: auto;
+  padding: var(--spacing-xs) var(--spacing-xl) var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.75rem;
 }
 
 .annotation-panel-title {

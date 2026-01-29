@@ -21,6 +21,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       webviewTag: true
     },
     titleBarStyle: 'default',
@@ -151,6 +152,34 @@ ipcMain.handle('pdf:readFile', async (event, filePath) => {
   }
 });
 
+ipcMain.handle('pdf:addFromData', async (event, name, data) => {
+  try {
+    // Save dropped file to userData directory
+    const pdfDir = path.join(userDataPath, 'pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    let destPath = path.join(pdfDir, safeName);
+
+    // Avoid overwriting: append a number if file exists
+    let counter = 1;
+    while (fs.existsSync(destPath)) {
+      const ext = path.extname(safeName);
+      const base = path.basename(safeName, ext);
+      destPath = path.join(pdfDir, `${base}_${counter}${ext}`);
+      counter++;
+    }
+
+    fs.writeFileSync(destPath, Buffer.from(data));
+    return destPath;
+  } catch (error) {
+    console.error('Error saving dropped PDF:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('pdf:getMetadata', async (event, filePath) => {
   try {
     const stats = fs.statSync(filePath);
@@ -184,7 +213,23 @@ ipcMain.handle('db:updatePDF', async (event, id, data) => {
 });
 
 ipcMain.handle('db:deletePDF', async (event, id, deleteAnnotations) => {
-  return db.deletePDF(id, deleteAnnotations);
+  // Get PDF info before deleting to clean up any copied file
+  const pdf = db.getPDF(id);
+  const result = db.deletePDF(id, deleteAnnotations);
+
+  // Only delete the file copy when fully removing (with annotations)
+  if (deleteAnnotations && pdf && pdf.path) {
+    const pdfDir = path.join(userDataPath, 'pdfs');
+    if (pdf.path.startsWith(pdfDir)) {
+      try {
+        fs.unlinkSync(pdf.path);
+      } catch (err) {
+        console.error('Error deleting PDF file copy:', err);
+      }
+    }
+  }
+
+  return result;
 });
 
 ipcMain.handle('db:searchPDFs', async (event, query) => {
