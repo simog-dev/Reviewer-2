@@ -578,7 +578,10 @@ export class PDFViewer {
     highlights.forEach(el => {
       el.classList.add('active');
       el.classList.add('flash');
-      setTimeout(() => el.classList.remove('flash'), 900);
+      setTimeout(() => {
+        el.classList.remove('flash');
+        el.classList.remove('active');
+      }, 1200);
     });
 
     // Scroll to the highlight itself so it lands in view regardless of zoom level

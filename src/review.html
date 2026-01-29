@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: file:; img-src 'self' data: blob:; frame-src https:; connect-src 'self' https://generativelanguage.googleapis.com">
-  <title>PDF Review</title>
+  <title>Reviewer 2 - Review</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/review.css">
 </head>
@@ -197,7 +197,26 @@
           </svg>
         </button>
         <div class="search-panel-content">
-          <webview src="https://www.google.com" nodeintegration="false"></webview>
+          <div class="search-panel-header">
+            <button class="btn btn-ghost btn-icon" id="btn-webview-back" title="Back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <button class="btn btn-ghost btn-icon" id="btn-webview-forward" title="Forward">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+            <button class="btn btn-ghost btn-icon" id="btn-webview-reload" title="Reload">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
+            <input type="text" class="webview-url-bar" id="webview-url-bar" placeholder="Enter URL..." value="https://www.google.com">
+          </div>
+          <webview src="https://www.google.com" nodeintegration="false" id="search-webview"></webview>
         </div>
       </div>
     </main>

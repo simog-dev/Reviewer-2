@@ -56,6 +56,12 @@ const categoryMenu = document.getElementById('category-menu');
 const toastContainer = document.getElementById('toast-container');
 const btnGenerateReview = document.getElementById('btn-generate-review');
 
+const searchWebview = document.getElementById('search-webview');
+const btnWebviewBack = document.getElementById('btn-webview-back');
+const btnWebviewForward = document.getElementById('btn-webview-forward');
+const btnWebviewReload = document.getElementById('btn-webview-reload');
+const webviewUrlBar = document.getElementById('webview-url-bar');
+
 // Initialize
 async function init() {
   // Get PDF ID from URL
@@ -768,6 +774,12 @@ function setupEventListeners() {
 
   // Close menus on outside click
   document.addEventListener('click', (e) => {
+    // Ignore clicks within the search panel
+    const searchPanel = document.getElementById('search-panel');
+    if (searchPanel && searchPanel.contains(e.target)) {
+      return;
+    }
+
     if (!contextMenu.contains(e.target) && !categoryMenu.contains(e.target)) {
       hideContextMenu();
     }
@@ -782,6 +794,80 @@ function setupEventListeners() {
       hideSelectionPopup();
     }
   });
+
+  // Webview navigation controls
+  if (btnWebviewBack && searchWebview) {
+    btnWebviewBack.addEventListener('click', () => {
+      if (searchWebview.canGoBack()) {
+        searchWebview.goBack();
+      }
+    });
+  }
+
+  if (btnWebviewForward && searchWebview) {
+    btnWebviewForward.addEventListener('click', () => {
+      if (searchWebview.canGoForward()) {
+        searchWebview.goForward();
+      }
+    });
+  }
+
+  if (btnWebviewReload && searchWebview) {
+    btnWebviewReload.addEventListener('click', () => {
+      searchWebview.reload();
+    });
+  }
+
+  // URL bar navigation
+  if (webviewUrlBar && searchWebview) {
+    webviewUrlBar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        let input = webviewUrlBar.value.trim();
+        if (!input) return;
+
+        let url;
+
+        // Check if input is a URL or a search query
+        if (input.match(/^[a-zA-Z]+:\/\//)) {
+          // Already has protocol (http://, https://, etc.)
+          url = input;
+        } else if (input.includes(' ') || !input.includes('.')) {
+          // Contains spaces or no dots -> treat as search query
+          url = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+        } else if (input.match(/^[\w-]+(\.[\w-]+)+/)) {
+          // Looks like a domain (word.word pattern) -> treat as URL
+          url = 'https://' + input;
+        } else {
+          // Default to search
+          url = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+        }
+
+        searchWebview.src = url;
+        webviewUrlBar.blur();
+      }
+    });
+  }
+
+  // Update navigation button states and URL bar based on webview navigation
+  if (searchWebview) {
+    const updateNavigationState = () => {
+      if (btnWebviewBack) {
+        btnWebviewBack.disabled = !searchWebview.canGoBack();
+      }
+      if (btnWebviewForward) {
+        btnWebviewForward.disabled = !searchWebview.canGoForward();
+      }
+      if (webviewUrlBar) {
+        webviewUrlBar.value = searchWebview.getURL();
+      }
+    };
+
+    searchWebview.addEventListener('did-navigate', updateNavigationState);
+    searchWebview.addEventListener('did-navigate-in-page', updateNavigationState);
+
+    // Initial state update after webview loads
+    searchWebview.addEventListener('dom-ready', updateNavigationState);
+  }
 }
 
 function updateZoomSelect() {

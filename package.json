@@ -1,7 +1,7 @@
 {
-  "name": "pdf-reviewer",
-  "version": "1.0.0",
-  "description": "Cross-platform Electron desktop app for PDF annotation with categorized comments",
+  "name": "reviewer-2",
+  "version": "1.0.1",
+  "description": "Professional peer review application for scholarly documents",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,8 +10,8 @@
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
-    "rebuild": "@electron/rebuild -f -w better-sqlite3",
-    "postinstall": "@electron/rebuild -f -w better-sqlite3 || true",
+    "rebuild": "npx @electron/rebuild -f -w better-sqlite3",
+    "postinstall": "npx @electron/rebuild -f -w better-sqlite3 || true",
     "test": "node tests/run-all-tests.js",
     "test:install": "node tests/install.test.js",
     "test:unit": "node tests/unit/run-unit-tests.js",
@@ -25,6 +25,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^11.7.0",
+    "electron-updater": "^6.7.3",
     "pdfjs-dist": "^4.9.155",
     "uuid": "^11.0.5"
   },
@@ -36,8 +37,9 @@
     "playwright": "^1.49.1"
   },
   "build": {
-    "appId": "com.pdf-reviewer.app",
-    "productName": "PDF Reviewer",
+    "appId": "com.reviewer2.app",
+    "productName": "Reviewer 2",
+    "executableName": "Reviewer2",
     "directories": {
       "output": "dist"
     },
@@ -45,8 +47,7 @@
       "main.js",
       "preload.js",
       "src/**/*",
-      "assets/**/*",
-      "node_modules/**/*"
+      "assets/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -56,10 +57,18 @@
       ]
     },
     "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ]
+      "target": {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    },
+    "nsis": {
+      "oneClick": true,
+      "createDesktopShortcut": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": true
     },
     "linux": {
       "target": [

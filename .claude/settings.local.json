@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npm run test:pdf:*)",
       "Bash(npm run test:unit:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run rebuild:*)",
+      "Bash(npx @electron/rebuild:*)"
     ]
   }
 }

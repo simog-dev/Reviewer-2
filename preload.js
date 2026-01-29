@@ -38,5 +38,13 @@ contextBridge.exposeInMainWorld('api', {
   // Navigation
   navigateToReview: (pdfId) => ipcRenderer.invoke('navigate:review', pdfId),
   navigateToHome: () => ipcRenderer.invoke('navigate:home'),
-  navigateToSettings: () => ipcRenderer.invoke('navigate:settings')
+  navigateToSettings: () => ipcRenderer.invoke('navigate:settings'),
+
+  // Auto-updater
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, progress) => callback(progress)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info))
 });

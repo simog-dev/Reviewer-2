@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const Database = require('./src/database/db');
@@ -44,6 +45,44 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // Configure auto-updater
+  autoUpdater.autoDownload = false; // Ask user before downloading
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  // Check for updates after app is ready (skip in dev mode)
+  if (!process.argv.includes('--dev')) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates();
+    }, 3000); // Wait 3 seconds to avoid blocking startup
+  }
+
+  // Auto-updater events
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('App is up to date');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progress);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info);
+    }
+  });
+
+  autoUpdater.on('error', (error) => {
+    console.error('Auto-updater error:', error);
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -61,6 +100,31 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+
+// Auto-updater handlers
+ipcMain.handle('updater:check', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return result;
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('updater:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return true;
+  } catch (error) {
+    console.error('Error downloading update:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('updater:install', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
 
 // PDF Operations
 ipcMain.handle('dialog:openPDF', async () => {
