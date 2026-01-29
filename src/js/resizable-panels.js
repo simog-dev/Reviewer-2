@@ -145,12 +145,15 @@ export class ResizablePanels {
     const content = panel.querySelector('.pdf-viewer-container, .annotation-panel-content, .search-panel-content');
     if (visibleWidth <= LABEL_THRESHOLD) {
       panel.style.overflowX = 'hidden';
+      panel.classList.remove('narrow-scroll');
       if (content) content.style.minWidth = '';
     } else if (visibleWidth < MIN_CONTENT) {
       panel.style.overflowX = 'auto';
+      panel.classList.add('narrow-scroll');
       if (content) content.style.minWidth = `${MIN_CONTENT}px`;
     } else {
       panel.style.overflowX = 'hidden';
+      panel.classList.remove('narrow-scroll');
       if (content) content.style.minWidth = '';
     }
   }

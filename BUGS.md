@@ -1,0 +1,3 @@
+# Major bugs:
+- Quando il pannello di sinistra (PDF) viene coperto dal pannello centrale, il PDF non e pienamente visibile su scroll X, come se parte sinistra del PDF uscisse fuori dallo schermo per cui anche se scrollo X tutto a sinistra, il testo del PDF risulta tagliato e non totalmente visibile fino al margine sinistro.
+- Se faccio creo un annotazione quando sono zoommato, poi clicco sull'annotazione dal suo pannello per scrollare verso il testo di riferimento, la posizione risulta scorretta (scrolla piu in alto rispetto al testo di riferimento)

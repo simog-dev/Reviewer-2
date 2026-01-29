@@ -15,13 +15,22 @@ async function initPdfJs() {
 // Pages within this many viewport heights of the visible area are pre-rendered
 const RENDER_BUFFER_VIEWPORTS = 2;
 
+// Category highlight colors (rgba with alpha for fill)
+const CATEGORY_COLORS = {
+  critical:   { r: 220, g: 38,  b: 38  },  // #dc2626
+  major:      { r: 234, g: 88,  b: 12  },  // #ea580c
+  minor:      { r: 202, g: 138, b: 4   },  // #ca8a04
+  suggestion: { r: 37,  g: 99,  b: 235 },  // #2563eb
+  question:   { r: 124, g: 58,  b: 237 },  // #7c3aed
+};
+
 export class PDFViewer {
   constructor(containerElement, options = {}) {
     this.container = containerElement;
     this.viewerElement = null;
     this.pdf = null;
     this.pages = [];               // PDF page objects (fetched during placeholder init)
-    this.pageElements = new Map(); // pageNumber → {container, canvas, textLayer, highlightLayer}
+    this.pageElements = new Map(); // pageNumber → {container, canvas, textLayer, highlightCanvas}
     this.renderedPages = new Set(); // pages with canvas + text currently rendered
     this.renderGeneration = 0;     // incremented on scale change to discard stale in-flight renders
     this.scale = options.scale || 1;
@@ -118,20 +127,21 @@ export class PDFViewer {
       textLayerDiv.className = 'textLayer';
       textLayerDiv.style.setProperty('--scale-factor', viewport.scale);
 
-      const highlightLayer = document.createElement('div');
-      highlightLayer.className = 'highlight-layer';
-      highlightLayer.dataset.pageNumber = i;
+      const highlightCanvas = document.createElement('canvas');
+      highlightCanvas.className = 'highlight-canvas';
+      highlightCanvas.width = 0;
+      highlightCanvas.height = 0;
 
       pageContainer.appendChild(canvas);
+      pageContainer.appendChild(highlightCanvas);
       pageContainer.appendChild(textLayerDiv);
-      pageContainer.appendChild(highlightLayer);
       this.viewerElement.appendChild(pageContainer);
 
       this.pageElements.set(i, {
         container: pageContainer,
         canvas,
         textLayer: textLayerDiv,
-        highlightLayer,
+        highlightCanvas,
         viewport
       });
 
@@ -159,6 +169,28 @@ export class PDFViewer {
         if (hitAnnotation) {
           e.stopPropagation();
           this.onHighlightClick(hitAnnotation, e);
+        }
+      });
+
+      textLayerDiv.addEventListener('contextmenu', (e) => {
+        if (this.highlightModeEnabled) return;
+
+        const pageRect = pageContainer.getBoundingClientRect();
+        const clickX = (e.clientX - pageRect.left) / this.scale;
+        const clickY = (e.clientY - pageRect.top) / this.scale;
+
+        const hitAnnotation = this.annotations.find(ann => {
+          if (ann.page_number !== pageNumber) return false;
+          return ann.highlight_rects.some(rect =>
+            clickX >= rect.left && clickX <= rect.left + rect.width &&
+            clickY >= rect.top && clickY <= rect.top + rect.height
+          );
+        });
+
+        if (hitAnnotation) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.onHighlightClick(hitAnnotation, e, true);
         }
       });
 
@@ -248,7 +280,7 @@ export class PDFViewer {
       return;
     }
 
-    const { canvas, textLayer: textLayerDiv } = elements;
+    const { canvas, textLayer: textLayerDiv, highlightCanvas } = elements;
     const pixelRatio = window.devicePixelRatio || 1;
 
     // Canvas renders at device-pixel resolution for crisp output on retina displays.
@@ -261,6 +293,12 @@ export class PDFViewer {
     canvas.height = renderViewport.height;
     canvas.style.width = `${layoutViewport.width}px`;
     canvas.style.height = `${layoutViewport.height}px`;
+
+    // Size highlight canvas to match PDF canvas
+    highlightCanvas.width = renderViewport.width;
+    highlightCanvas.height = renderViewport.height;
+    highlightCanvas.style.width = `${layoutViewport.width}px`;
+    highlightCanvas.style.height = `${layoutViewport.height}px`;
 
     await page.render({
       canvasContext: context,
@@ -297,16 +335,7 @@ export class PDFViewer {
     }
 
     // Render any annotations belonging to this page
-    this.annotations
-      .filter(ann => ann.page_number === pageNumber)
-      .forEach(ann => this.renderHighlight(ann));
-
-    // Apply current highlight-mode pointer-event state to new highlights
-    if (this.highlightModeEnabled) {
-      elements.container.querySelectorAll('.annotation-highlight').forEach(el => {
-        el.style.pointerEvents = 'none';
-      });
-    }
+    this.redrawPageHighlights(pageNumber);
   }
 
   async setScale(newScale) {
@@ -342,7 +371,10 @@ export class PDFViewer {
       elements.canvas.style.width = '';
       elements.canvas.style.height = '';
       elements.textLayer.innerHTML = '';
-      elements.highlightLayer.innerHTML = '';
+      elements.highlightCanvas.width = 0;
+      elements.highlightCanvas.height = 0;
+      elements.highlightCanvas.style.width = '';
+      elements.highlightCanvas.style.height = '';
     });
     this.renderedPages.clear();
 
@@ -504,13 +536,6 @@ export class PDFViewer {
 
   setHighlightMode(enabled) {
     this.highlightModeEnabled = enabled;
-
-    // When in highlight mode, disable pointer events on highlights to allow text selection
-    // When not in highlight mode, enable pointer events so highlights are clickable
-    const highlights = this.viewerElement.querySelectorAll('.annotation-highlight');
-    highlights.forEach(highlight => {
-      highlight.style.pointerEvents = enabled ? 'none' : 'auto';
-    });
   }
 
   setAnnotations(annotations) {
@@ -523,101 +548,116 @@ export class PDFViewer {
     // unrendered pages will get their highlights when renderPageIfNeeded runs
     this.pageElements.forEach((elements, pageNumber) => {
       if (!this.renderedPages.has(pageNumber)) return;
-      elements.highlightLayer.innerHTML = '';
+      this.redrawPageHighlights(pageNumber);
     });
+  }
 
-    this.annotations.forEach(annotation => {
-      if (this.renderedPages.has(annotation.page_number)) {
-        this.renderHighlight(annotation);
-      }
-    });
+  // Clear and redraw all highlights for a single page on its highlight canvas
+  redrawPageHighlights(pageNumber) {
+    const elements = this.pageElements.get(pageNumber);
+    if (!elements || !elements.highlightCanvas.width) return;
+
+    const ctx = elements.highlightCanvas.getContext('2d');
+    ctx.clearRect(0, 0, elements.highlightCanvas.width, elements.highlightCanvas.height);
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    const pageAnnotations = this.annotations.filter(a => a.page_number === pageNumber);
+
+    for (const ann of pageAnnotations) {
+      this._drawAnnotationRects(ctx, ann, pixelRatio, 0.25);
+    }
+  }
+
+  // Draw the rectangles for a single annotation on a canvas context
+  _drawAnnotationRects(ctx, annotation, pixelRatio, alpha) {
+    const color = CATEGORY_COLORS[annotation.category_name.toLowerCase()];
+    if (!color) return;
+
+    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+
+    for (const rect of annotation.highlight_rects) {
+      ctx.fillRect(
+        rect.left * this.scale * pixelRatio,
+        rect.top * this.scale * pixelRatio,
+        rect.width * this.scale * pixelRatio,
+        rect.height * this.scale * pixelRatio
+      );
+    }
   }
 
   renderHighlight(annotation) {
-    const pageElements = this.pageElements.get(annotation.page_number);
-    if (!pageElements) return;
-
-    const { highlightLayer } = pageElements;
-    const rects = annotation.highlight_rects;
-    const categoryClass = `highlight-${annotation.category_name.toLowerCase()}`;
-
-    rects.forEach((rect, index) => {
-      const highlightEl = document.createElement('div');
-      highlightEl.className = `annotation-highlight ${categoryClass}`;
-      highlightEl.dataset.annotationId = annotation.id;
-      highlightEl.dataset.rectIndex = index;
-      highlightEl.style.left = `${rect.left * this.scale}px`;
-      highlightEl.style.top = `${rect.top * this.scale}px`;
-      highlightEl.style.width = `${rect.width * this.scale}px`;
-      highlightEl.style.height = `${rect.height * this.scale}px`;
-      highlightEl.title = `${annotation.category_name}: ${annotation.comment || annotation.selected_text}`;
-
-      // Disable pointer events when in highlight mode to allow text selection
-      if (this.highlightModeEnabled) {
-        highlightEl.style.pointerEvents = 'none';
-      }
-
-      highlightEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.onHighlightClick(annotation, e);
-      });
-
-      highlightEl.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.onHighlightClick(annotation, e, true);
-      });
-
-      highlightLayer.appendChild(highlightEl);
-    });
+    // For canvas-based highlights, just redraw the whole page
+    this.redrawPageHighlights(annotation.page_number);
   }
 
   updateHighlight(annotationId, categoryName) {
-    const highlights = this.viewerElement.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-    highlights.forEach(el => {
-      // Remove old category class
-      el.className = el.className.replace(/highlight-\w+/, '');
-      // Add new category class
-      el.classList.add(`highlight-${categoryName.toLowerCase()}`);
-    });
+    const annotation = this.annotations.find(a => a.id === annotationId);
+    if (annotation) {
+      this.redrawPageHighlights(annotation.page_number);
+    }
   }
 
   removeHighlight(annotationId) {
-    const highlights = this.viewerElement.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-    highlights.forEach(el => el.remove());
+    // Find which page this annotation was on before it was removed from this.annotations
+    // Caller should pass the page number or we scan all rendered pages
+    // Since the annotation may already be removed from this.annotations, redraw all rendered pages
+    this.pageElements.forEach((elements, pageNumber) => {
+      if (this.renderedPages.has(pageNumber)) {
+        this.redrawPageHighlights(pageNumber);
+      }
+    });
   }
 
   async highlightAnnotation(annotationId) {
-    // Ensure the target page is rendered before trying to find highlight elements
     const annotation = this.annotations.find(a => a.id === annotationId);
-    if (annotation) {
-      await this.renderPageIfNeeded(annotation.page_number);
-    }
+    if (!annotation) return;
 
-    // Remove active from all
-    this.viewerElement.querySelectorAll('.annotation-highlight.active')
-      .forEach(el => el.classList.remove('active'));
+    await this.renderPageIfNeeded(annotation.page_number);
 
-    // Add active to this annotation
-    const highlights = this.viewerElement.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-    highlights.forEach(el => {
-      el.classList.add('active');
-      el.classList.add('flash');
-      setTimeout(() => {
-        el.classList.remove('flash');
-        el.classList.remove('active');
-      }, 1200);
-    });
+    const elements = this.pageElements.get(annotation.page_number);
+    if (!elements || !elements.highlightCanvas.width) return;
 
-    // Scroll to the highlight itself so it lands in view regardless of zoom level
-    if (highlights.length > 0) {
-      this._scrollElementIntoContainer(highlights[0], 'center');
-    } else if (annotation) {
-      // Fallback: scroll to the page placeholder even if highlight elements not found
-      const elements = this.pageElements.get(annotation.page_number);
-      if (elements) {
-        this._scrollElementIntoContainer(elements.container, 'center');
+    const pixelRatio = window.devicePixelRatio || 1;
+    const ctx = elements.highlightCanvas.getContext('2d');
+    const pageNumber = annotation.page_number;
+
+    // Flash animation: alternate between high and normal opacity
+    let flashCount = 0;
+    const maxFlashes = 4; // 2 full cycles (high-low-high-low)
+    const flashInterval = 300;
+
+    const flash = () => {
+      this.redrawPageHighlights(pageNumber);
+      if (flashCount < maxFlashes) {
+        // Draw this annotation's rects with higher opacity on even counts
+        if (flashCount % 2 === 0) {
+          this._drawAnnotationRects(ctx, annotation, pixelRatio, 0.55);
+        }
+        flashCount++;
+        setTimeout(() => requestAnimationFrame(flash), flashInterval);
       }
+    };
+
+    requestAnimationFrame(flash);
+
+    // Scroll so the first highlight rect is vertically centered in the container.
+    const firstRect = annotation.highlight_rects[0];
+    if (firstRect) {
+      const rectHeight = firstRect.height * this.scale;
+      const containerRect = this.container.getBoundingClientRect();
+      const pageRect = elements.container.getBoundingClientRect();
+      // Where the rect center is on screen right now
+      const rectScreenCenter = pageRect.top + firstRect.top * this.scale + rectHeight / 2;
+      // Where we want it (container center)
+      const containerCenter = containerRect.top + containerRect.height / 2;
+      // Adjust scrollTop by the difference (+ fixed offset to correct undershoot)
+      const SCROLL_CORRECTION = 200;
+      this.container.scrollTo({
+        top: this.container.scrollTop + (rectScreenCenter - containerCenter) + SCROLL_CORRECTION,
+        behavior: 'smooth'
+      });
+    } else {
+      this._scrollElementIntoContainer(elements.container, 'center');
     }
   }
 
