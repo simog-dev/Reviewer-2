@@ -1,5 +1,12 @@
-// Minimum panel width as a fraction of container width
-const MIN_WIDTH_RATIO = 0.20;
+// Card stack resizable panels model
+// Left panel (z-index 1) -> Center panel (z-index 2) -> Right panel (z-index 3)
+// Panels can close fully to 0 width; the resizer bar stays visible with a vertical label.
+// A static left-edge tab always shows "PDF" for the left panel.
+
+const MIN_CONTENT = 200; // Minimum internal content width (enables scroll below this)
+const RESIZER_W = 18;    // Resizer bar width
+const LABEL_THRESHOLD = 4; // Panel considered collapsed when width <= this
+const LEFT_TAB_W = 18;   // Static left-edge tab width (same as resizer)
 
 export class ResizablePanels {
   constructor(options = {}) {
@@ -11,19 +18,15 @@ export class ResizablePanels {
     this.container = options.container;
 
     this.isDragging = false;
-    this.activeDragging = null; // 'resizer1' or 'resizer2'
+    this.activeDragging = null;
     this.startX = 0;
-    this.startLeftWidth = 0;
-    this.startRightWidth = 0;
-    this.startSearchWidthAtR1 = 0;
-    this.startPdfWidthAtR2 = 0;
+    this.startPos1 = 0;
+    this.startPos2 = 0;
 
-    this.pdfCollapsed = false;
-    this.annotationCollapsed = false;
-    this.searchCollapsed = false;
-    this.lastPdfWidth = null;
-    this.lastAnnotationWidth = null;
-    this.lastSearchWidth = null;
+    // pos1 = right edge of left panel (= left edge of resizer1)
+    // pos2 = right edge of center panel content area
+    this.pos1 = 0;
+    this.pos2 = 0;
 
     this.onResize = options.onResize || (() => {});
 
@@ -31,95 +34,167 @@ export class ResizablePanels {
   }
 
   init() {
+    this._setupLeftTab();
+    this._setupResizerLabels();
+    this._initPositions();
     this.loadSavedLayout();
     this.setupResizers();
-    this.setupCollapseButtons();
+    this._observeResize();
+  }
+
+  _setupLeftTab() {
+    // Create a static tab on the left edge that always says "PDF"
+    const tab = document.createElement('div');
+    tab.className = 'panel-left-tab';
+    const label = document.createElement('span');
+    label.className = 'resizer-label';
+    label.textContent = 'PDF';
+    label.style.display = '';
+    tab.appendChild(label);
+    this.container.appendChild(tab);
+    this.leftTab = tab;
+  }
+
+  _initPositions() {
+    const w = this.container.clientWidth;
+    this.pos1 = Math.round(w * 0.4);
+    this.pos2 = Math.round(w * 0.7);
+    this._applyPositions();
+  }
+
+  _containerWidth() {
+    return this.container.clientWidth;
+  }
+
+  _clampPositions() {
+    const w = this._containerWidth();
+    // Layout: [leftTab 18][left: pos1][R1: 18][center: pos2-pos1][R2: 18][right: rest]
+    // Total fixed = LEFT_TAB_W + 2*RESIZER_W
+    // pos1 >= 0, pos2 >= pos1, right >= 0
+    const maxPos2 = w - LEFT_TAB_W - 2 * RESIZER_W;
+
+    this.pos1 = Math.max(0, this.pos1);
+    this.pos2 = Math.max(this.pos1, this.pos2);
+    this.pos2 = Math.min(maxPos2, this.pos2);
+    this.pos1 = Math.min(this.pos1, this.pos2);
+  }
+
+  _applyPositions() {
+    const w = this._containerWidth();
+
+    // Layout: [leftTab LEFT_TAB_W][leftPanel pos1][resizer1 RESIZER_W][centerPanel pos2-pos1][resizer2 RESIZER_W][rightPanel rest]
+    const base = LEFT_TAB_W; // everything shifted right by the left tab
+
+    const leftWidth = this.pos1;
+    const leftLeft = base;
+
+    const r1Left = base + this.pos1;
+
+    const centerWidth = Math.max(0, this.pos2 - this.pos1);
+    const centerLeft = r1Left + RESIZER_W;
+
+    const r2Left = centerLeft + centerWidth;
+
+    const rightLeft = r2Left + RESIZER_W;
+    const rightWidth = Math.max(0, w - rightLeft);
+
+    // Left tab (static)
+    this.leftTab.style.left = '0';
+
+    // Left panel
+    this.pdfPanel.style.left = `${leftLeft}px`;
+    this.pdfPanel.style.width = `${leftWidth}px`;
+
+    // Resizer1
+    this.resizer1.style.left = `${r1Left}px`;
+
+    // Center panel
+    this.annotationPanel.style.left = `${centerLeft}px`;
+    this.annotationPanel.style.width = `${centerWidth}px`;
+
+    // Resizer2
+    this.resizer2.style.left = `${r2Left}px`;
+
+    // Right panel
+    this.searchPanel.style.left = `${rightLeft}px`;
+    this.searchPanel.style.width = `${rightWidth}px`;
+
+    // Overflow scrolling for narrow panels
+    this._updatePanelOverflow(this.pdfPanel, leftWidth);
+    this._updatePanelOverflow(this.annotationPanel, centerWidth);
+    this._updatePanelOverflow(this.searchPanel, rightWidth);
+
+    // Collapsed state & resizer labels
+    const leftCollapsed = leftWidth <= LABEL_THRESHOLD;
+    const centerCollapsed = centerWidth <= LABEL_THRESHOLD;
+    const rightCollapsed = rightWidth <= LABEL_THRESHOLD;
+
+    this.pdfPanel.classList.toggle('collapsed', leftCollapsed);
+    this.annotationPanel.classList.toggle('collapsed', centerCollapsed);
+    this.searchPanel.classList.toggle('collapsed', rightCollapsed);
+
+    // Resizer labels are always visible:
+    // - leftTab always shows "PDF"
+    // - resizer1 always shows "Annotations" (center panel's left edge)
+    // - resizer2 always shows "Search" (right panel's left edge)
+    this._updateResizerLabel(this.resizer1, 'Annotations');
+    this._updateResizerLabel(this.resizer2, 'Search');
+  }
+
+  _updatePanelOverflow(panel, visibleWidth) {
+    const content = panel.querySelector('.pdf-viewer-container, .annotation-panel-content, .search-panel-content');
+    if (visibleWidth <= LABEL_THRESHOLD) {
+      panel.style.overflowX = 'hidden';
+      if (content) content.style.minWidth = '';
+    } else if (visibleWidth < MIN_CONTENT) {
+      panel.style.overflowX = 'auto';
+      if (content) content.style.minWidth = `${MIN_CONTENT}px`;
+    } else {
+      panel.style.overflowX = 'hidden';
+      if (content) content.style.minWidth = '';
+    }
+  }
+
+  _setupResizerLabels() {
+    for (const resizer of [this.resizer1, this.resizer2]) {
+      const label = document.createElement('span');
+      label.className = 'resizer-label';
+      resizer.appendChild(label);
+    }
+  }
+
+  _updateResizerLabel(resizer, text) {
+    const label = resizer.querySelector('.resizer-label');
+    if (!label) return;
+    if (text) {
+      label.textContent = text;
+      label.style.display = 'block';
+      resizer.classList.add('has-label');
+    } else {
+      label.textContent = '';
+      label.style.display = 'none';
+      resizer.classList.remove('has-label');
+    }
   }
 
   loadSavedLayout() {
     window.api.getSetting('panelLayout').then(layout => {
-      if (layout) {
-        if (layout.pdfWidthPercent) {
-          this.setPdfWidthPercent(layout.pdfWidthPercent);
-        }
-        if (layout.searchWidth) {
-          this.searchPanel.style.width = `${layout.searchWidth}px`;
-          this.searchPanel.style.flex = 'none';
-        }
-        if (layout.pdfCollapsed) {
-          this.collapsePdf();
-        }
-        if (layout.annotationCollapsed) {
-          this.collapseAnnotations();
-        }
-        if (layout.searchCollapsed) {
-          this.collapseSearch();
-        }
+      if (layout && layout.pos1Ratio != null && layout.pos2Ratio != null) {
+        const w = this._containerWidth();
+        this.pos1 = Math.round(layout.pos1Ratio * w);
+        this.pos2 = Math.round(layout.pos2Ratio * w);
+        this._clampPositions();
+        this._applyPositions();
       }
     }).catch(() => {});
   }
 
   saveLayout() {
-    const containerWidth = this.container.clientWidth;
-    const pdfWidth = this.pdfPanel.clientWidth;
-    const pdfWidthPercent = (pdfWidth / containerWidth) * 100;
-    const searchWidth = this.searchPanel.clientWidth;
-
+    const w = this._containerWidth();
     window.api.setSetting('panelLayout', {
-      pdfWidthPercent,
-      searchWidth,
-      pdfCollapsed: this.pdfCollapsed,
-      annotationCollapsed: this.annotationCollapsed,
-      searchCollapsed: this.searchCollapsed
+      pos1Ratio: this.pos1 / w,
+      pos2Ratio: this.pos2 / w
     }).catch(() => {});
-  }
-
-  // After any collapse/expand, assign flex correctly based on which panels are open.
-  _distributeSpace() {
-    const openCount = (this.pdfCollapsed ? 0 : 1) + (this.annotationCollapsed ? 0 : 1) + (this.searchCollapsed ? 0 : 1);
-
-    if (openCount === 1) {
-      // Single open panel fills everything
-      if (!this.pdfCollapsed) {
-        this.pdfPanel.style.flex = '1';
-        this.pdfPanel.style.width = '';
-      } else if (!this.annotationCollapsed) {
-        this.annotationPanel.style.flex = '1';
-      } else if (!this.searchCollapsed) {
-        this.searchPanel.style.flex = '1';
-        this.searchPanel.style.width = '';
-      }
-    } else if (openCount === 2) {
-      if (this.pdfCollapsed) {
-        // Annotation + Search open: annotation fills
-        this.annotationPanel.style.flex = '1';
-        this.searchPanel.style.flex = 'none';
-      } else if (this.annotationCollapsed) {
-        // PDF + Search open: PDF fills
-        this.pdfPanel.style.flex = '1';
-        this.pdfPanel.style.width = '';
-        this.searchPanel.style.flex = 'none';
-      } else if (this.searchCollapsed) {
-        // PDF + Annotation open: annotation fills
-        this.pdfPanel.style.flex = 'none';
-        this.annotationPanel.style.flex = '1';
-      }
-    } else {
-      // All three open: PDF fixed, annotation fills, search fixed
-      this.pdfPanel.style.flex = 'none';
-      this.annotationPanel.style.flex = '1';
-      this.searchPanel.style.flex = 'none';
-    }
-
-    // resizer1 separates PDF and Annotation: visible only if both are open.
-    // resizer2 separates Annotation and Search: visible if Search is open and
-    // there is at least one open panel to its left to resize against.
-    this.resizer1.style.display = (!this.pdfCollapsed && !this.annotationCollapsed) ? '' : 'none';
-    this.resizer2.style.display = (!this.searchCollapsed && (!this.pdfCollapsed || !this.annotationCollapsed)) ? '' : 'none';
-  }
-
-  _resizersTotalWidth() {
-    return this.resizer1.clientWidth + this.resizer2.clientWidth;
   }
 
   setupResizers() {
@@ -128,13 +203,9 @@ export class ResizablePanels {
       this.isDragging = true;
       this.activeDragging = activeName;
       this.startX = e.clientX;
-      this.startLeftWidth = this.pdfPanel.clientWidth;
-      this.startRightWidth = this.searchPanel.clientWidth;
-      this.startSearchWidthAtR1 = this.searchPanel.clientWidth;
-      this.startPdfWidthAtR2 = this.pdfPanel.clientWidth;
+      this.startPos1 = this.pos1;
+      this.startPos2 = this.pos2;
       resizerEl.classList.add('dragging');
-      // Capture pointer so mousemove/mouseup always reach this element,
-      // even if the cursor enters a webview (which swallows events).
       resizerEl.setPointerCapture(e.pointerId);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
@@ -143,78 +214,29 @@ export class ResizablePanels {
     const onMove = (e) => {
       if (!this.isDragging) return;
 
-      const containerWidth = this.container.clientWidth;
       const delta = e.clientX - this.startX;
-      const resizersWidth = this._resizersTotalWidth();
-      const usable = containerWidth - resizersWidth;
-      const minWidth = Math.round(containerWidth * MIN_WIDTH_RATIO);
+      const w = this._containerWidth();
+      const maxPos2 = w - LEFT_TAB_W - 2 * RESIZER_W;
 
-      if (this.annotationCollapsed) {
-        // Annotation is collapsed (40px); PDF and Search share remaining space
-        const annotFixed = 40;
-        const available = usable - annotFixed;
-
-        if (this.activeDragging === 'resizer1') {
-          let newPdfWidth = this.startLeftWidth + delta;
-          newPdfWidth = Math.max(minWidth, Math.min(available - minWidth, newPdfWidth));
-          this.pdfPanel.style.flex = 'none';
-          this.pdfPanel.style.width = `${newPdfWidth}px`;
-          this.annotationPanel.style.flex = 'none';
-          this.annotationPanel.style.width = '40px';
-          this.searchPanel.style.flex = '1';
-        } else {
-          let newSearchWidth = this.startRightWidth - delta;
-          newSearchWidth = Math.max(minWidth, Math.min(available - minWidth, newSearchWidth));
-          this.searchPanel.style.flex = 'none';
-          this.searchPanel.style.width = `${newSearchWidth}px`;
-          this.annotationPanel.style.flex = 'none';
-          this.annotationPanel.style.width = '40px';
-          this.pdfPanel.style.flex = '1';
+      if (this.activeDragging === 'resizer1') {
+        let newPos1 = this.startPos1 + delta;
+        newPos1 = Math.max(0, Math.min(maxPos2, newPos1));
+        this.pos1 = newPos1;
+        if (this.pos2 < this.pos1) {
+          this.pos2 = this.pos1;
         }
-      } else if (this.activeDragging === 'resizer1') {
-        // Resizer1: PDF grows/shrinks. Annotation absorbs first; if annotation
-        // hits min, search also shrinks (only if search is open).
-        const searchMin = this.searchCollapsed ? 40 : minWidth;
-        let newPdfWidth = this.startLeftWidth + delta;
-        const maxPdf = usable - minWidth - searchMin;
-        newPdfWidth = Math.max(minWidth, Math.min(maxPdf, newPdfWidth));
-
-        const remaining = usable - newPdfWidth;
-        let searchWidth = this.searchCollapsed ? 40 : this.startSearchWidthAtR1;
-        let annotationWidth = remaining - searchWidth;
-        if (annotationWidth < minWidth) {
-          annotationWidth = minWidth;
-          searchWidth = remaining - minWidth;
-        }
-
-        this.pdfPanel.style.flex = 'none';
-        this.pdfPanel.style.width = `${newPdfWidth}px`;
-        this.searchPanel.style.flex = 'none';
-        this.searchPanel.style.width = `${searchWidth}px`;
-        this.annotationPanel.style.flex = '1';
+        this.pos2 = Math.min(maxPos2, this.pos2);
       } else {
-        // Resizer2: Search grows/shrinks. Annotation absorbs first; if annotation
-        // hits min, PDF also shrinks (only if PDF is open).
-        const pdfMin = this.pdfCollapsed ? 40 : minWidth;
-        let newSearchWidth = this.startRightWidth - delta;
-        const maxSearch = usable - minWidth - pdfMin;
-        newSearchWidth = Math.max(minWidth, Math.min(maxSearch, newSearchWidth));
-
-        const remaining = usable - newSearchWidth;
-        let pdfWidth = this.pdfCollapsed ? 40 : this.startPdfWidthAtR2;
-        let annotationWidth = remaining - pdfWidth;
-        if (annotationWidth < minWidth) {
-          annotationWidth = minWidth;
-          pdfWidth = remaining - minWidth;
+        let newPos2 = this.startPos2 + delta;
+        newPos2 = Math.max(0, Math.min(maxPos2, newPos2));
+        this.pos2 = newPos2;
+        if (this.pos1 > this.pos2) {
+          this.pos1 = this.pos2;
         }
-
-        this.searchPanel.style.flex = 'none';
-        this.searchPanel.style.width = `${newSearchWidth}px`;
-        this.pdfPanel.style.flex = 'none';
-        this.pdfPanel.style.width = `${pdfWidth}px`;
-        this.annotationPanel.style.flex = '1';
+        this.pos1 = Math.max(0, this.pos1);
       }
 
+      this._applyPositions();
       this.onResize();
     };
 
@@ -233,249 +255,29 @@ export class ResizablePanels {
       }
     };
 
-    // Use pointer events on the resizers so capture works across webview boundaries
     this.resizer1.addEventListener('pointerdown', (e) => startDrag(e, this.resizer1, 'resizer1'));
     this.resizer2.addEventListener('pointerdown', (e) => startDrag(e, this.resizer2, 'resizer2'));
     this.resizer1.addEventListener('pointermove', onMove);
     this.resizer2.addEventListener('pointermove', onMove);
     this.resizer1.addEventListener('pointerup', endDrag);
     this.resizer2.addEventListener('pointerup', endDrag);
-
-    // Fallback: document-level mouseup in case pointer events miss
     document.addEventListener('mouseup', endDrag);
   }
 
-  setupCollapseButtons() {
-    const collapsePdfBtn = document.getElementById('collapse-pdf');
-    const collapseAnnotationsBtn = document.getElementById('collapse-annotations');
-    const collapseSearchBtn = document.getElementById('collapse-search');
-
-    if (collapsePdfBtn) {
-      collapsePdfBtn.addEventListener('click', () => this.togglePdf());
-    }
-
-    if (collapseAnnotationsBtn) {
-      collapseAnnotationsBtn.addEventListener('click', () => this.toggleAnnotations());
-    }
-
-    if (collapseSearchBtn) {
-      collapseSearchBtn.addEventListener('click', () => this.toggleSearch());
-    }
+  _observeResize() {
+    const ro = new ResizeObserver(() => {
+      if (this.isDragging) return;
+      this._clampPositions();
+      this._applyPositions();
+    });
+    ro.observe(this.container);
   }
 
-  setPdfWidthPercent(percent) {
-    const containerWidth = this.container.clientWidth;
-    const newWidth = (percent / 100) * containerWidth;
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = `${newWidth}px`;
-    this.annotationPanel.style.flex = '1';
-  }
-
-  _collapsedCount() {
-    return (this.pdfCollapsed ? 1 : 0) + (this.annotationCollapsed ? 1 : 0) + (this.searchCollapsed ? 1 : 0);
-  }
-
-  _minWidth() {
-    return Math.round(this.container.clientWidth * MIN_WIDTH_RATIO);
-  }
-
-  // Chevron SVGs — all buttons are at top-right, so:
-  //   left chevron = collapse (shrink this panel)
-  //   right chevron = expand (grow this panel)
-  _collapseChevron() {
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>`;
-  }
-
-  _expandChevron() {
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>`;
-  }
-
-  collapsePdf() {
-    if (this._collapsedCount() >= 2) return;
-
-    this.lastPdfWidth = this.pdfPanel.clientWidth;
-    this.pdfPanel.classList.add('collapsed');
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = '40px';
-    this.pdfCollapsed = true;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-pdf');
-    if (btn) {
-      btn.innerHTML = this._expandChevron();
-      btn.title = 'Expand PDF Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  expandPdf() {
-    this.pdfPanel.classList.remove('collapsed');
-    this.pdfCollapsed = false;
-
-    // Snapshot sibling widths so they have explicit inline widths when
-    // _distributeSpace switches them to flex: none.
-    this.annotationPanel.style.flex = 'none';
-    this.annotationPanel.style.width = `${this.annotationPanel.clientWidth}px`;
-    this.searchPanel.style.flex = 'none';
-    this.searchPanel.style.width = `${this.searchPanel.clientWidth}px`;
-
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = `${this._minWidth()}px`;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-pdf');
-    if (btn) {
-      btn.innerHTML = this._collapseChevron();
-      btn.title = 'Collapse PDF Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  collapseAnnotations() {
-    if (this._collapsedCount() >= 2) return;
-
-    this.lastAnnotationWidth = this.annotationPanel.clientWidth;
-    this.lastPdfWidth = this.pdfPanel.clientWidth;
-    this.lastSearchWidth = this.searchPanel.clientWidth;
-    this.annotationPanel.classList.add('collapsed');
-    this.annotationCollapsed = true;
-
-    // Lock PDF and search at their current widths before distributing
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = `${this.lastPdfWidth}px`;
-    this.searchPanel.style.flex = 'none';
-    this.searchPanel.style.width = `${this.lastSearchWidth}px`;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-annotations');
-    if (btn) {
-      btn.innerHTML = this._expandChevron();
-      btn.title = 'Expand Annotation Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  expandAnnotations() {
-    this.annotationPanel.classList.remove('collapsed');
-    this.annotationCollapsed = false;
-
-    // Snapshot current rendered widths of PDF and Search so they have explicit
-    // inline widths when _distributeSpace switches them to flex: none.
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = `${this.pdfPanel.clientWidth}px`;
-    this.searchPanel.style.flex = 'none';
-    this.searchPanel.style.width = `${this.searchPanel.clientWidth}px`;
-
-    this.annotationPanel.style.flex = 'none';
-    this.annotationPanel.style.width = `${this._minWidth()}px`;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-annotations');
-    if (btn) {
-      btn.innerHTML = this._collapseChevron();
-      btn.title = 'Collapse Annotation Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  collapseSearch() {
-    if (this._collapsedCount() >= 2) return;
-
-    this.lastSearchWidth = this.searchPanel.clientWidth;
-    this.searchPanel.classList.add('collapsed');
-    this.searchPanel.style.flex = 'none';
-    this.searchPanel.style.width = '40px';
-    this.searchCollapsed = true;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-search');
-    if (btn) {
-      btn.innerHTML = this._expandChevron();
-      btn.title = 'Expand Search Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  expandSearch() {
-    this.searchPanel.classList.remove('collapsed');
-    this.searchCollapsed = false;
-
-    // Snapshot sibling widths so they have explicit inline widths when
-    // _distributeSpace switches them to flex: none.
-    this.pdfPanel.style.flex = 'none';
-    this.pdfPanel.style.width = `${this.pdfPanel.clientWidth}px`;
-    this.annotationPanel.style.flex = 'none';
-    this.annotationPanel.style.width = `${this.annotationPanel.clientWidth}px`;
-
-    this.searchPanel.style.flex = 'none';
-    this.searchPanel.style.width = `${this._minWidth()}px`;
-
-    this._distributeSpace();
-
-    const btn = document.getElementById('collapse-search');
-    if (btn) {
-      btn.innerHTML = this._collapseChevron();
-      btn.title = 'Collapse Search Panel';
-    }
-
-    this.saveLayout();
-    this.onResize();
-  }
-
-  restorePanels() {
-    if (this.pdfCollapsed) {
-      this.expandPdf();
-    }
-    if (this.annotationCollapsed) {
-      this.expandAnnotations();
-    }
-    if (this.searchCollapsed) {
-      this.expandSearch();
-    }
-  }
-
-  togglePdf() {
-    if (this.pdfCollapsed) {
-      this.expandPdf();
-    } else {
-      this.collapsePdf();
-    }
-  }
-
-  toggleAnnotations() {
-    if (this.annotationCollapsed) {
-      this.expandAnnotations();
-    } else {
-      this.collapseAnnotations();
-    }
-  }
-
-  toggleSearch() {
-    if (this.searchCollapsed) {
-      this.expandSearch();
-    } else {
-      this.collapseSearch();
-    }
-  }
+  // No-ops for backward compatibility with keyboard shortcuts
+  togglePdf() {}
+  toggleAnnotations() {}
+  toggleSearch() {}
+  restorePanels() {}
 }
 
 export default ResizablePanels;

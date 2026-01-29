@@ -142,7 +142,6 @@
 
 /* Main Content Area */
 .main-content {
-  display: flex;
   flex: 1;
   overflow: hidden;
   position: relative;
@@ -150,17 +149,26 @@
 
 /* Panel Resizer */
 .panel-resizer {
-  width: 6px;
-  background-color: var(--color-border);
+  width: 18px;
+  background-color: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
   cursor: col-resize;
-  flex-shrink: 0;
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
   transition: background-color var(--transition-fast);
 }
 
 .panel-resizer:hover,
 .panel-resizer.dragging {
   background-color: var(--color-primary);
+}
+
+.panel-resizer:hover .resizer-label,
+.panel-resizer.dragging .resizer-label {
+  color: white;
 }
 
 .panel-resizer::after {
@@ -175,68 +183,59 @@
   border-radius: var(--radius-full);
 }
 
-/* Collapse Buttons — horizontal tab at top-center of each panel */
-.collapse-btn {
+/* Static left-edge tab for PDF panel */
+.panel-left-tab {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  padding: 4px 12px;
+  bottom: 0;
+  left: 0;
+  width: 18px;
   background-color: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  border-right: 1px solid var(--color-border);
+  z-index: 10;
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: flex-start;
+  justify-content: center;
 }
 
-.collapse-btn:hover {
-  background-color: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
+/* Collapse buttons — hidden (collapse is automatic via card stack) */
+.collapse-btn {
+  display: none;
 }
 
-.collapse-btn svg {
-  width: 12px;
-  height: 12px;
+/* Resizer label — vertical text shown when adjacent panel is collapsed */
+.resizer-label {
+  position: relative;
+  top: 12px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  display: none;
+}
+
+/* Always show label in the left tab */
+.panel-left-tab .resizer-label {
   display: block;
-}
-
-/* In collapsed state (40px strip), center vertically */
-.pdf-panel.collapsed .collapse-btn,
-.annotation-panel.collapsed .collapse-btn,
-.search-panel.collapsed .collapse-btn {
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: var(--spacing-xs);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
 }
 
 /* PDF Panel */
 .pdf-panel {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
-  min-width: 0;
 }
 
 .pdf-panel.collapsed {
-  min-width: 0;
-  flex: 0;
-  width: 40px;
-}
-
-.pdf-panel.collapsed .pdf-viewer-container {
-  display: none;
 }
 
 .pdf-viewer-container {
@@ -361,24 +360,18 @@
 
 /* Annotation Panel */
 .annotation-panel {
-  width: 350px;
-  min-width: 0;
-  max-width: 70%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-secondary);
   border-left: 1px solid var(--color-border);
-  position: relative;
+  overflow: hidden;
 }
 
 .annotation-panel.collapsed {
-  min-width: 0;
-  width: 40px;
-  max-width: 40px;
-}
-
-.annotation-panel.collapsed .annotation-panel-content {
-  display: none;
 }
 
 .annotation-panel-content {
@@ -657,41 +650,25 @@
   color: var(--color-text-secondary);
 }
 
-/* Collapsed Panel Indicator */
+/* Collapsed Panel Indicator — hidden (replaced by resizer labels) */
 .collapsed-indicator {
   display: none;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  padding: var(--spacing-md);
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-}
-
-.pdf-panel.collapsed .collapsed-indicator,
-.annotation-panel.collapsed .collapsed-indicator,
-.search-panel.collapsed .collapsed-indicator {
-  display: block;
 }
 
 /* Search Panel */
 .search-panel {
-  width: 350px;
-  min-width: 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-secondary);
   border-left: 1px solid var(--color-border);
-  position: relative;
+  overflow: hidden;
 }
 
 .search-panel.collapsed {
-  min-width: 0;
-  width: 40px;
-  max-width: 40px;
-}
-
-.search-panel.collapsed .search-panel-content {
-  display: none;
 }
 
 .search-panel-content {
