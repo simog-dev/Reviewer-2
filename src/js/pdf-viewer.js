@@ -384,6 +384,12 @@ export class PDFViewer {
     try {
       const textContent = await page.getTextContent();
 
+      // Filter out watermark text (e.g. "For Peer Review") that overlaps real content
+      textContent.items = textContent.items.filter(item => {
+        const str = (item.str || '').trim();
+        return !/^For\s+Peer\s+Review$/i.test(str);
+      });
+
       if (pdfjs.TextLayer) {
         const textLayer = new pdfjs.TextLayer({
           textContentSource: textContent,

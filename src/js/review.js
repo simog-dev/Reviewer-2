@@ -298,11 +298,6 @@ function handleAnnotationCreated(annotation) {
   updateAnnotationCount();
   updateCategoryFilterCounts();
 
-  // Flash the newly created highlight
-  setTimeout(() => {
-    pdfViewer.highlightAnnotation(annotation.id);
-  }, 100);
-
   showToast('Annotation created', 'success');
 }
 
