@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS categories (
     name TEXT NOT NULL UNIQUE,
     color TEXT NOT NULL,
     icon TEXT,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    is_default INTEGER DEFAULT 0
 );
 
 -- Annotations table

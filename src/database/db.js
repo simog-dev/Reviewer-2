@@ -30,6 +30,17 @@ class DBManager {
     } catch (e) {
       // Column already exists, ignore
     }
+
+    // Add category customization columns
+    try {
+      this.db.exec(`ALTER TABLE categories ADD COLUMN is_active INTEGER DEFAULT 1`);
+    } catch (e) { /* already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE categories ADD COLUMN is_default INTEGER DEFAULT 0`);
+    } catch (e) { /* already exists */ }
+
+    // Mark the 5 seed categories as default
+    this.db.exec(`UPDATE categories SET is_default = 1 WHERE id <= 5`);
   }
 
   prepareStatements() {
@@ -112,7 +123,24 @@ class DBManager {
       getAllCategories: this.db.prepare(`
         SELECT * FROM categories ORDER BY sort_order
       `),
+      getActiveCategories: this.db.prepare(`
+        SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order
+      `),
       getCategory: this.db.prepare(`SELECT * FROM categories WHERE id = ?`),
+      insertCategory: this.db.prepare(`
+        INSERT INTO categories (name, color, icon, sort_order, is_active, is_default)
+        VALUES (@name, @color, @icon, @sortOrder, @isActive, 0)
+      `),
+      updateCategory: this.db.prepare(`
+        UPDATE categories SET name = @name, color = @color, icon = @icon, is_active = @isActive, sort_order = @sortOrder
+        WHERE id = @id
+      `),
+      deleteCategory: this.db.prepare(`DELETE FROM categories WHERE id = ? AND is_default = 0`),
+      updateCategoryOrder: this.db.prepare(`UPDATE categories SET sort_order = @sortOrder WHERE id = @id`),
+      getCategoryCount: this.db.prepare(`SELECT COUNT(*) as count FROM categories`),
+      getActiveCategoryCount: this.db.prepare(`SELECT COUNT(*) as count FROM categories WHERE is_active = 1`),
+      getCategoryAnnotationCount: this.db.prepare(`SELECT COUNT(*) as count FROM annotations WHERE category_id = ?`),
+      reassignAnnotations: this.db.prepare(`UPDATE annotations SET category_id = @toId, updated_at = datetime('now') WHERE category_id = @fromId`),
 
       // Settings
       getSetting: this.db.prepare(`SELECT value FROM settings WHERE key = ?`),
@@ -247,6 +275,61 @@ class DBManager {
 
   getCategory(id) {
     return this.stmts.getCategory.get(id);
+  }
+
+  getActiveCategories() {
+    return this.stmts.getActiveCategories.all();
+  }
+
+  addCategory(data) {
+    const result = this.stmts.insertCategory.run({
+      name: data.name,
+      color: data.color,
+      icon: data.icon || 'label',
+      sortOrder: data.sortOrder || 0,
+      isActive: data.isActive !== undefined ? data.isActive : 1
+    });
+    return this.getCategory(result.lastInsertRowid);
+  }
+
+  updateCategory(id, data) {
+    this.stmts.updateCategory.run({
+      id,
+      name: data.name,
+      color: data.color,
+      icon: data.icon,
+      isActive: data.isActive,
+      sortOrder: data.sortOrder
+    });
+    return this.getCategory(id);
+  }
+
+  deleteCategory(id) {
+    const annotationCount = this.stmts.getCategoryAnnotationCount.get(id).count;
+    if (annotationCount > 0) {
+      throw new Error('Cannot delete category with existing annotations');
+    }
+    return this.stmts.deleteCategory.run(id);
+  }
+
+  updateCategoryOrder(id, sortOrder) {
+    return this.stmts.updateCategoryOrder.run({ id, sortOrder });
+  }
+
+  getCategoryCount() {
+    return this.stmts.getCategoryCount.get().count;
+  }
+
+  getActiveCategoryCount() {
+    return this.stmts.getActiveCategoryCount.get().count;
+  }
+
+  getCategoryAnnotationCount(categoryId) {
+    return this.stmts.getCategoryAnnotationCount.get(categoryId).count;
+  }
+
+  reassignAnnotations(fromCategoryId, toCategoryId) {
+    return this.stmts.reassignAnnotations.run({ fromId: fromCategoryId, toId: toCategoryId });
   }
 
   // Settings Methods

@@ -27,7 +27,16 @@ contextBridge.exposeInMainWorld('api', {
 
   // Database Operations - Categories
   getAllCategories: () => ipcRenderer.invoke('db:getAllCategories'),
+  getActiveCategories: () => ipcRenderer.invoke('db:getActiveCategories'),
   getCategory: (id) => ipcRenderer.invoke('db:getCategory', id),
+  addCategory: (data) => ipcRenderer.invoke('db:addCategory', data),
+  updateCategory: (id, data) => ipcRenderer.invoke('db:updateCategory', id, data),
+  deleteCategory: (id) => ipcRenderer.invoke('db:deleteCategory', id),
+  updateCategoryOrder: (id, sortOrder) => ipcRenderer.invoke('db:updateCategoryOrder', id, sortOrder),
+  getCategoryCount: () => ipcRenderer.invoke('db:getCategoryCount'),
+  getActiveCategoryCount: () => ipcRenderer.invoke('db:getActiveCategoryCount'),
+  getCategoryAnnotationCount: (categoryId) => ipcRenderer.invoke('db:getCategoryAnnotationCount', categoryId),
+  reassignAnnotations: (fromId, toId) => ipcRenderer.invoke('db:reassignAnnotations', fromId, toId),
 
   // Export Operations
   saveFile: (options) => ipcRenderer.invoke('export:saveFile', options),

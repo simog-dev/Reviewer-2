@@ -23,6 +23,19 @@
     <div class="settings-body">
       <div class="settings-card">
 
+        <!-- Highlight Categories Section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Highlight Categories</div>
+          <div class="category-limits-hint" id="category-limits-hint"></div>
+          <div class="category-list" id="category-list"></div>
+          <button class="btn btn-secondary btn-add-category" id="btn-add-category">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Category
+          </button>
+        </div>
+
         <!-- LLM / AI Section -->
         <div class="settings-section">
           <div class="settings-section-title">AI Review Generation</div>
@@ -85,6 +98,28 @@
   </div>
 
   <div class="toast-container" id="toast-container"></div>
+
+  <!-- Rename Category Confirmation Modal -->
+  <div class="modal-overlay" id="rename-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Rename Category</h3>
+        <button class="modal-close" id="rename-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="rename-modal-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="rename-modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="rename-modal-confirm">Rename</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/settings.js"></script>
 </body>

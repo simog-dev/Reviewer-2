@@ -270,6 +270,42 @@ ipcMain.handle('db:getCategory', async (event, id) => {
   return db.getCategory(id);
 });
 
+ipcMain.handle('db:getActiveCategories', async () => {
+  return db.getActiveCategories();
+});
+
+ipcMain.handle('db:addCategory', async (event, data) => {
+  return db.addCategory(data);
+});
+
+ipcMain.handle('db:updateCategory', async (event, id, data) => {
+  return db.updateCategory(id, data);
+});
+
+ipcMain.handle('db:deleteCategory', async (event, id) => {
+  return db.deleteCategory(id);
+});
+
+ipcMain.handle('db:updateCategoryOrder', async (event, id, sortOrder) => {
+  return db.updateCategoryOrder(id, sortOrder);
+});
+
+ipcMain.handle('db:getCategoryCount', async () => {
+  return db.getCategoryCount();
+});
+
+ipcMain.handle('db:getActiveCategoryCount', async () => {
+  return db.getActiveCategoryCount();
+});
+
+ipcMain.handle('db:getCategoryAnnotationCount', async (event, categoryId) => {
+  return db.getCategoryAnnotationCount(categoryId);
+});
+
+ipcMain.handle('db:reassignAnnotations', async (event, fromCategoryId, toCategoryId) => {
+  return db.reassignAnnotations(fromCategoryId, toCategoryId);
+});
+
 // Export Operations
 ipcMain.handle('export:saveFile', async (event, { defaultName, filters, content }) => {
   const result = await dialog.showSaveDialog(mainWindow, {

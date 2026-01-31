@@ -644,16 +644,24 @@ export class PDFViewer {
     const pageAnnotations = this.annotations.filter(a => a.page_number === pageNumber);
 
     for (const ann of pageAnnotations) {
-      this._drawAnnotationRects(ctx, ann, pixelRatio, 0.25);
+      this._drawAnnotationRects(ctx, ann, pixelRatio, 0.75);
     }
   }
 
   // Draw the rectangles for a single annotation on a canvas context
   _drawAnnotationRects(ctx, annotation, pixelRatio, alpha) {
-    const color = CATEGORY_COLORS[annotation.category_name.toLowerCase()];
-    if (!color) return;
+    // Use category_color from the annotation (fetched from DB via JOIN)
+    // If not available, fall back to hardcoded colors
+    let fillStyle;
+    if (annotation.category_color) {
+      fillStyle = this._hexToRgba(annotation.category_color, alpha);
+    } else {
+      const color = CATEGORY_COLORS[annotation.category_name.toLowerCase()];
+      if (!color) return;
+      fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+    }
 
-    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+    ctx.fillStyle = fillStyle;
 
     for (const rect of annotation.highlight_rects) {
       ctx.fillRect(
@@ -663,6 +671,14 @@ export class PDFViewer {
         rect.height * this.scale * pixelRatio
       );
     }
+  }
+
+  // Convert hex color to rgba
+  _hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   renderHighlight(annotation) {

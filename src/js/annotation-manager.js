@@ -141,9 +141,10 @@ export class AnnotationManager {
     });
 
     this.annotations.forEach(a => {
-      if (counts[a.category_id] !== undefined) {
-        counts[a.category_id]++;
+      if (counts[a.category_id] === undefined) {
+        counts[a.category_id] = 0;
       }
+      counts[a.category_id]++;
     });
 
     return counts;

@@ -13,6 +13,7 @@ let pdfViewer = null;
 let annotationManager = null;
 let resizablePanels = null;
 let categories = [];
+let activeCategories = [];
 let highlightMode = false;
 let pendingSelection = null;
 let editingAnnotationId = null;
@@ -109,6 +110,7 @@ async function init() {
 // Load categories
 async function loadCategories() {
   categories = await annotationManager.loadCategories();
+  activeCategories = await window.api.getActiveCategories();
   renderCategoryFilters();
   renderCategoryButtons();
   renderCategorySelect();
@@ -158,13 +160,41 @@ async function loadPDF() {
 async function loadAnnotations() {
   const annotations = await annotationManager.loadAnnotations();
   pdfViewer.setAnnotations(annotationManager.annotations);
+  renderCategoryFilters();
   renderAnnotationList(annotations);
   updateAnnotationCount();
   updateCategoryFilterCounts();
 }
 
+// Build the list of categories to show in filters:
+// union of active categories + categories referenced by annotations in this document
+function getFilterCategories() {
+  const byId = new Map();
+
+  // Add active categories first
+  activeCategories.forEach(cat => byId.set(cat.id, cat));
+
+  // Add categories from existing annotations (may include inactive ones)
+  annotationManager.annotations.forEach(a => {
+    if (!byId.has(a.category_id)) {
+      byId.set(a.category_id, {
+        id: a.category_id,
+        name: a.category_name,
+        color: a.category_color,
+        icon: a.category_icon,
+        sort_order: Infinity
+      });
+    }
+  });
+
+  // Sort: categories with known sort_order first, then annotation-only ones at the end
+  return Array.from(byId.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
 // Render functions
 function renderCategoryFilters() {
+  const filterCats = getFilterCategories();
+  const hasActiveFilters = annotationManager.activeFilters.size > 0;
   categoryFilters.innerHTML = `
     <category-filter
       category-id="0"
@@ -172,22 +202,23 @@ function renderCategoryFilters() {
       color="#3b82f6"
       icon="info"
       count="0"
-      active
+      ${!hasActiveFilters ? 'active' : ''}
     ></category-filter>
-    ${categories.map(cat => `
+    ${filterCats.map(cat => `
       <category-filter
         category-id="${cat.id}"
         name="${cat.name}"
         color="${cat.color}"
         icon="${cat.icon}"
         count="0"
+        ${annotationManager.activeFilters.has(cat.id) ? 'active' : ''}
       ></category-filter>
     `).join('')}
   `;
 }
 
 function renderCategoryButtons() {
-  categoryButtons.innerHTML = categories.map(cat => `
+  categoryButtons.innerHTML = activeCategories.map(cat => `
     <button class="category-btn ${cat.name.toLowerCase()}"
             data-category-id="${cat.id}"
             data-tooltip="${cat.name}"
@@ -198,13 +229,13 @@ function renderCategoryButtons() {
 }
 
 function renderCategorySelect() {
-  categorySelect.innerHTML = categories.map(cat => `
+  categorySelect.innerHTML = activeCategories.map(cat => `
     <option value="${cat.id}">${cat.name}</option>
   `).join('');
 }
 
 function renderCategoryMenu() {
-  categoryMenu.innerHTML = categories.map(cat => `
+  categoryMenu.innerHTML = activeCategories.map(cat => `
     <div class="context-menu-item" data-category-id="${cat.id}" style="color: ${cat.color}">
       ${getCategoryIcon(cat.icon)}
       ${cat.name}
@@ -254,8 +285,9 @@ function updateCategoryFilterCounts() {
     allFilter.setAttribute('count', total);
   }
 
-  // Update category filters
-  categories.forEach(cat => {
+  // Update category filters for all visible filter chips
+  const filterCats = getFilterCategories();
+  filterCats.forEach(cat => {
     const filter = categoryFilters.querySelector(`[category-id="${cat.id}"]`);
     if (filter) {
       filter.setAttribute('count', counts[cat.id] || 0);
@@ -294,6 +326,7 @@ function handleAnnotationCreated(annotation) {
   console.log('handleAnnotationCreated called with:', annotation);
   console.log('Total annotations:', annotationManager.annotations.length);
   pdfViewer.setAnnotations(annotationManager.annotations);
+  renderCategoryFilters();
   renderAnnotationList(annotationManager.getFilteredAndSorted());
   updateAnnotationCount();
   updateCategoryFilterCounts();
@@ -303,6 +336,7 @@ function handleAnnotationCreated(annotation) {
 
 function handleAnnotationUpdated(annotation) {
   pdfViewer.setAnnotations(annotationManager.annotations);
+  renderCategoryFilters();
   renderAnnotationList(annotationManager.getFilteredAndSorted());
   updateCategoryFilterCounts();
   showToast('Annotation updated', 'success');
@@ -310,6 +344,7 @@ function handleAnnotationUpdated(annotation) {
 
 function handleAnnotationDeleted(annotationId) {
   pdfViewer.setAnnotations(annotationManager.annotations);
+  renderCategoryFilters();
   renderAnnotationList(annotationManager.getFilteredAndSorted());
   updateAnnotationCount();
   updateCategoryFilterCounts();
