@@ -77,6 +77,14 @@
       </div>
 
       <div class="toolbar-right">
+        <!-- Mark Completed Button -->
+        <button class="btn btn-secondary" id="btn-mark-completed" title="Mark as Completed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span id="completion-btn-text">Mark as Completed</span>
+        </button>
+
         <!-- Export Button -->
         <div style="position: relative;">
           <button class="btn btn-secondary btn-export" id="btn-export" title="Export Annotations">
@@ -263,6 +271,36 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
         <button class="btn btn-primary" id="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Modal -->
+  <div class="modal-overlay" id="completion-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="completion-modal-title">Mark as Completed</h3>
+        <button class="modal-close" id="completion-modal-close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="review-decision-select">Review Decision</label>
+          <select class="select" id="review-decision-select">
+            <option value="accept">Accept</option>
+            <option value="minor-revisions">Minor Revisions</option>
+            <option value="major-revisions">Major Revisions</option>
+            <option value="reject">Reject</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="completion-modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="completion-modal-confirm">Confirm</button>
       </div>
     </div>
   </div>

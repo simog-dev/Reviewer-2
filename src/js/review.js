@@ -57,6 +57,14 @@ const categoryMenu = document.getElementById('category-menu');
 const toastContainer = document.getElementById('toast-container');
 const btnGenerateReview = document.getElementById('btn-generate-review');
 
+const completionModal = document.getElementById('completion-modal');
+const completionModalClose = document.getElementById('completion-modal-close');
+const completionModalCancel = document.getElementById('completion-modal-cancel');
+const completionModalConfirm = document.getElementById('completion-modal-confirm');
+const reviewDecisionSelect = document.getElementById('review-decision-select');
+const btnMarkCompleted = document.getElementById('btn-mark-completed');
+const completionBtnText = document.getElementById('completion-btn-text');
+
 const searchWebview = document.getElementById('search-webview');
 const btnWebviewBack = document.getElementById('btn-webview-back');
 const btnWebviewForward = document.getElementById('btn-webview-forward');
@@ -147,6 +155,9 @@ async function loadPDF() {
 
     const totalPages = await pdfViewer.load(fileData);
     totalPagesEl.textContent = totalPages;
+
+    // Update completion button state
+    updateCompletionButton();
 
     // Hide loading
     pdfLoading.classList.add('hidden');
@@ -651,6 +662,68 @@ function showToast(message, type = 'success') {
   }, 4000);
 }
 
+// Completion Functions
+function updateCompletionButton() {
+  if (!pdfData) return;
+
+  const isCompleted = pdfData.completed === 1;
+
+  if (isCompleted) {
+    completionBtnText.textContent = 'Mark as Incomplete';
+    btnMarkCompleted.classList.add('completed');
+    btnMarkCompleted.title = 'Mark as Incomplete';
+  } else {
+    completionBtnText.textContent = 'Mark as Completed';
+    btnMarkCompleted.classList.remove('completed');
+    btnMarkCompleted.title = 'Mark as Completed';
+  }
+}
+
+function showCompletionModal() {
+  reviewDecisionSelect.value = pdfData.review_decision || 'accept';
+  completionModal.classList.add('active');
+  reviewDecisionSelect.focus();
+}
+
+function hideCompletionModal() {
+  completionModal.classList.remove('active');
+  reviewDecisionSelect.value = 'accept';
+}
+
+async function handleMarkCompleted() {
+  const isCompleted = pdfData.completed === 1;
+
+  if (isCompleted) {
+    // Mark as incomplete directly (no modal)
+    try {
+      const updatedPdf = await window.api.markPDFIncomplete(pdfId);
+      pdfData = updatedPdf;
+      updateCompletionButton();
+      showToast('PDF marked as incomplete', 'success');
+    } catch (error) {
+      console.error('Error marking PDF as incomplete:', error);
+      showToast('Failed to update completion status', 'error');
+    }
+  } else {
+    // Show modal for optional comment
+    showCompletionModal();
+  }
+}
+
+async function confirmCompletion() {
+  try {
+    const reviewDecision = reviewDecisionSelect.value;
+    const updatedPdf = await window.api.markPDFCompleted(pdfId, reviewDecision);
+    pdfData = updatedPdf;
+    updateCompletionButton();
+    hideCompletionModal();
+    showToast('PDF marked as completed', 'success');
+  } catch (error) {
+    console.error('Error marking PDF as completed:', error);
+    showToast('Failed to update completion status', 'error');
+  }
+}
+
 // Event Listeners
 function setupEventListeners() {
   // Navigation
@@ -754,6 +827,12 @@ function setupEventListeners() {
   modalClose.addEventListener('click', hideAnnotationModal);
   modalCancel.addEventListener('click', hideAnnotationModal);
   modalSave.addEventListener('click', saveAnnotation);
+
+  // Completion modal
+  btnMarkCompleted.addEventListener('click', handleMarkCompleted);
+  completionModalClose.addEventListener('click', hideCompletionModal);
+  completionModalCancel.addEventListener('click', hideCompletionModal);
+  completionModalConfirm.addEventListener('click', confirmCompletion);
 
   annotationModal.addEventListener('click', (e) => {
     if (e.target === annotationModal) hideAnnotationModal();
@@ -967,7 +1046,9 @@ function setupKeyboardShortcuts() {
 
     // Escape: Close modal/deselect
     if (e.key === 'Escape') {
-      if (annotationModal.classList.contains('active')) {
+      if (completionModal.classList.contains('active')) {
+        hideCompletionModal();
+      } else if (annotationModal.classList.contains('active')) {
         hideAnnotationModal();
       } else if (selectionPopup.classList.contains('active')) {
         hideSelectionPopup();

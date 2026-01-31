@@ -2,7 +2,7 @@
 
 ## Major Features
 
-### 1. Personalizzazione categorie di Highlight
+### 1 [COMPLETA]. Personalizzazione categorie di Highlight
 - Creazione di una nuova sezione **Settings > Highlight Categories**
 - Categorie di default predefinite, attivabili/disattivabili singolarmente
 - Per ogni categoria:
@@ -14,16 +14,18 @@
 - Riordinamento delle categorie tramite **drag & drop**
 - Le modifiche devono riflettersi coerentemente su:
   - Bottoni del pop-up di Highlight
-  - Filtri
+  - Filtri del pannello annotazioni
   - Card delle annotazioni
 
-### 2. Stato di completamento del PDF
-- Possibilità di segnare un PDF come **“Completato”**
+### 2. [COMPLETA] Stato di completamento del PDF
+- Possibilità di segnare un PDF come **"Completato"**
 - Alla marcatura come completato:
-  - Opzione per aggiungere un **commento generico**
+  - Opzione per aggiungere un **commento generico** (opzionale)
 - Introduzione di un **filtro nella Home**:
-  - PDF completati
-  - PDF non completati
+  - Pulsanti per visualizzare: Tutti / PDF completati / PDF non completati
+- Badge visivo sulle card dei PDF completati
+- Bottone "Mark as Completed" nella review page che diventa "Mark as Incomplete" quando il PDF è completato
+- Salvataggio automatico di: stato di completamento, commento, e timestamp
 
 ### 3. Evidenziazione senza annotazione
 - Possibilità di evidenziare testo **senza creare un’annotazione**

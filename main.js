@@ -236,6 +236,14 @@ ipcMain.handle('db:searchPDFs', async (event, query) => {
   return db.searchPDFs(query);
 });
 
+ipcMain.handle('db:markPDFCompleted', async (event, id, reviewDecision) => {
+  return db.markPDFCompleted(id, reviewDecision);
+});
+
+ipcMain.handle('db:markPDFIncomplete', async (event, id) => {
+  return db.markPDFIncomplete(id);
+});
+
 // Database Operations - Annotations
 ipcMain.handle('db:addAnnotation', async (event, annotationData) => {
   return db.addAnnotation(annotationData);

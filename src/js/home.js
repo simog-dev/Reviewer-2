@@ -15,6 +15,7 @@ let allPDFs = [];
 let filteredPDFs = [];
 let currentPage = 1;
 let searchQuery = '';
+let completionFilter = 'all'; // 'all', 'completed', 'incomplete'
 let deleteTargetId = null;
 
 // DOM Elements
@@ -31,6 +32,7 @@ const btnAddPdf = document.getElementById('btn-add-pdf');
 const btnAddPdfEmpty = document.getElementById('btn-add-pdf-empty');
 const btnSettings = document.getElementById('btn-settings');
 const toastContainer = document.getElementById('toast-container');
+const completionFilters = document.getElementById('completion-filters');
 
 // Delete Modal Elements
 const deleteModal = document.getElementById('delete-modal');
@@ -62,13 +64,22 @@ async function loadPDFs() {
 // Filter and render PDFs
 function filterAndRender() {
   // Apply search filter
+  let filtered = [...allPDFs];
+
   if (searchQuery) {
-    filteredPDFs = allPDFs.filter(pdf =>
+    filtered = filtered.filter(pdf =>
       pdf.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  } else {
-    filteredPDFs = [...allPDFs];
   }
+
+  // Apply completion filter
+  if (completionFilter === 'completed') {
+    filtered = filtered.filter(pdf => pdf.completed === 1);
+  } else if (completionFilter === 'incomplete') {
+    filtered = filtered.filter(pdf => pdf.completed === 0 || !pdf.completed);
+  }
+
+  filteredPDFs = filtered;
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredPDFs.length / ITEMS_PER_PAGE);
@@ -106,6 +117,8 @@ function renderPDFs(pdfs) {
       page-count="${pdf.page_count || 0}"
       annotation-count="${pdf.annotation_count || 0}"
       updated-at="${pdf.updated_at}"
+      completed="${pdf.completed || 0}"
+      ${pdf.review_decision ? `review-decision="${escapeAttr(pdf.review_decision)}"` : ''}
     ></pdf-card>
   `).join('');
 }
@@ -400,6 +413,23 @@ function setupEventListeners() {
   document.addEventListener('pdf-delete', (e) => {
     const { id, name } = e.detail;
     handleDeletePDF(id, name);
+  });
+
+  // Completion filter buttons
+  const filterButtons = completionFilters.querySelectorAll('.filter-btn');
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filter = btn.dataset.filter;
+      completionFilter = filter;
+      currentPage = 1;
+
+      // Update active state
+      filterButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Re-render
+      filterAndRender();
+    });
   });
 }
 

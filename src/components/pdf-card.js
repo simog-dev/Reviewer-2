@@ -7,7 +7,7 @@ class PDFCard extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['pdf-id', 'name', 'path', 'page-count', 'annotation-count', 'updated-at'];
+    return ['pdf-id', 'name', 'path', 'page-count', 'annotation-count', 'updated-at', 'completed', 'review-decision'];
   }
 
   connectedCallback() {
@@ -43,6 +43,14 @@ class PDFCard extends HTMLElement {
 
   get updatedAt() {
     return this.getAttribute('updated-at') || new Date().toISOString();
+  }
+
+  get completed() {
+    return this.getAttribute('completed');
+  }
+
+  get reviewDecision() {
+    return this.getAttribute('review-decision');
   }
 
   render() {
@@ -175,6 +183,55 @@ class PDFCard extends HTMLElement {
         .card-wrapper {
           position: relative;
         }
+
+        .completion-indicator {
+          position: absolute;
+          top: 6px;
+          left: 6px;
+          width: 20px;
+          height: 20px;
+          background-color: #10b981;
+          color: white;
+          border-radius: var(--radius-full, 9999px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+          z-index: 1;
+        }
+
+        .completion-indicator svg {
+          width: 12px;
+          height: 12px;
+        }
+
+        .review-decision-badge {
+          background-color: var(--badge-bg, #3b82f6);
+          color: white;
+          padding: 2px 8px;
+          border-radius: var(--radius-full, 9999px);
+          font-weight: 600;
+          font-size: 0.6875rem;
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .review-decision-badge.accept {
+          --badge-bg: #047857;
+        }
+
+        .review-decision-badge.minor-revisions {
+          --badge-bg: #a16207;
+        }
+
+        .review-decision-badge.major-revisions {
+          --badge-bg: #c2410c;
+        }
+
+        .review-decision-badge.reject {
+          --badge-bg: #b91c1c;
+        }
       </style>
     `;
 
@@ -182,9 +239,23 @@ class PDFCard extends HTMLElement {
       ? '...' + this.path.slice(-37)
       : this.path;
 
+    const reviewDecisionLabels = {
+      'accept': 'Accept',
+      'minor-revisions': 'Minor',
+      'major-revisions': 'Major',
+      'reject': 'Reject'
+    };
+
     this.shadowRoot.innerHTML = `
       ${styles}
       <div class="card-wrapper">
+        ${this.completed === '1' ? `
+        <div class="completion-indicator" title="Completed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        ` : ''}
         <div class="card" tabindex="0" role="button" aria-label="Open ${this.name}">
           <div class="card-header">
             <div class="pdf-icon">PDF</div>
@@ -210,6 +281,11 @@ class PDFCard extends HTMLElement {
               </svg>
               <span>${this.annotationCount}</span>
             </div>
+            ${this.reviewDecision ? `
+            <div class="review-decision-badge ${this.reviewDecision}" title="Review Decision">
+              ${reviewDecisionLabels[this.reviewDecision] || this.reviewDecision}
+            </div>
+            ` : ''}
             <div class="meta-item" style="margin-left: auto;">
               <span>${formatRelativeTime(this.updatedAt)}</span>
             </div>

@@ -41,6 +41,27 @@ class DBManager {
 
     // Mark the 5 seed categories as default
     this.db.exec(`UPDATE categories SET is_default = 1 WHERE id <= 5`);
+
+    // Add completion columns for PDFs
+    try {
+      this.db.exec(`ALTER TABLE pdfs ADD COLUMN completed INTEGER DEFAULT 0`);
+    } catch (e) { /* already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE pdfs ADD COLUMN review_decision TEXT`);
+    } catch (e) { /* already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE pdfs ADD COLUMN completed_at TEXT`);
+    } catch (e) { /* already exists */ }
+
+    // Migrate old completion_comment to review_decision if column exists
+    try {
+      const columns = this.db.prepare(`PRAGMA table_info(pdfs)`).all();
+      const hasOldColumn = columns.some(col => col.name === 'completion_comment');
+      if (hasOldColumn) {
+        // Copy data from old column to new column (if any)
+        this.db.exec(`UPDATE pdfs SET review_decision = completion_comment WHERE completion_comment IS NOT NULL AND review_decision IS NULL`);
+      }
+    } catch (e) { /* ignore */ }
   }
 
   prepareStatements() {
@@ -216,6 +237,32 @@ class DBManager {
 
   searchPDFs(query) {
     return this.stmts.searchPDFs.all(`%${query}%`);
+  }
+
+  markPDFCompleted(id, reviewDecision = null) {
+    const stmt = this.db.prepare(`
+      UPDATE pdfs
+      SET completed = 1,
+          review_decision = ?,
+          completed_at = datetime('now'),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `);
+    stmt.run(reviewDecision, id);
+    return this.getPDF(id);
+  }
+
+  markPDFIncomplete(id) {
+    const stmt = this.db.prepare(`
+      UPDATE pdfs
+      SET completed = 0,
+          review_decision = NULL,
+          completed_at = NULL,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `);
+    stmt.run(id);
+    return this.getPDF(id);
   }
 
   // Annotation Methods

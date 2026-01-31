@@ -167,6 +167,29 @@
   height: 18px;
 }
 
+/* Mark Completed Button */
+#btn-mark-completed {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+#btn-mark-completed svg {
+  width: 18px;
+  height: 18px;
+}
+
+#btn-mark-completed.completed {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+#btn-mark-completed.completed:hover:not(:disabled) {
+  background-color: #059669;
+  border-color: #059669;
+}
+
 /* Main Content Area */
 .main-content {
   flex: 1;

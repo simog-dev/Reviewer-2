@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS pdfs (
     path TEXT NOT NULL UNIQUE,
     page_count INTEGER DEFAULT 0,
     last_opened_at TEXT,
+    completed INTEGER DEFAULT 0,
+    review_decision TEXT,
+    completed_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

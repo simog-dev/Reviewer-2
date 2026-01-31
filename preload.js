@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('api', {
   updatePDF: (id, data) => ipcRenderer.invoke('db:updatePDF', id, data),
   deletePDF: (id, deleteAnnotations) => ipcRenderer.invoke('db:deletePDF', id, deleteAnnotations),
   searchPDFs: (query) => ipcRenderer.invoke('db:searchPDFs', query),
+  markPDFCompleted: (id, reviewDecision) => ipcRenderer.invoke('db:markPDFCompleted', id, reviewDecision),
+  markPDFIncomplete: (id) => ipcRenderer.invoke('db:markPDFIncomplete', id),
 
   // Database Operations - Annotations
   addAnnotation: (annotationData) => ipcRenderer.invoke('db:addAnnotation', annotationData),
