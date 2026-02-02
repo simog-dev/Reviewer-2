@@ -543,7 +543,7 @@ export class PDFViewer {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed) return;
 
-      const range = selection.getRangeAt(0);
+      let range = selection.getRangeAt(0);
       if (!range) return;
 
       // Check if selection is within the PDF viewer
@@ -553,6 +553,13 @@ export class PDFViewer {
 
       const pageContainer = textLayer.closest('.pdf-page');
       if (!pageContainer) return;
+
+      // Expand range to include complete words
+      range = this.expandRangeToWordBoundaries(range);
+
+      // Update the browser selection to the expanded range
+      selection.removeAllRanges();
+      selection.addRange(range);
 
       const pageNumber = parseInt(pageContainer.dataset.pageNumber, 10);
       const selectedText = selection.toString().trim();
@@ -584,6 +591,48 @@ export class PDFViewer {
         mouseY: e.clientY
       });
     });
+  }
+
+  // Expand selection range to include complete words at boundaries
+  expandRangeToWordBoundaries(range) {
+    try {
+      const startContainer = range.startContainer;
+      const endContainer = range.endContainer;
+
+      // Word boundary regex: spaces, punctuation, etc.
+      const wordBoundary = /[\s\.,;:!?\-\–\—\(\)\[\]\{\}\"\'\/\\]/;
+
+      // Expand start
+      if (startContainer.nodeType === Node.TEXT_NODE) {
+        const text = startContainer.textContent;
+        let startOffset = range.startOffset;
+
+        // Move backwards to find word start
+        while (startOffset > 0 && !wordBoundary.test(text[startOffset - 1])) {
+          startOffset--;
+        }
+
+        range.setStart(startContainer, startOffset);
+      }
+
+      // Expand end
+      if (endContainer.nodeType === Node.TEXT_NODE) {
+        const text = endContainer.textContent;
+        let endOffset = range.endOffset;
+
+        // Move forward to find word end
+        while (endOffset < text.length && !wordBoundary.test(text[endOffset])) {
+          endOffset++;
+        }
+
+        range.setEnd(endContainer, endOffset);
+      }
+
+      return range;
+    } catch (error) {
+      console.error('Error expanding range:', error);
+      return range;
+    }
   }
 
   mergeRects(rects) {
