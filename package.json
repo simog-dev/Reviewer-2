@@ -40,7 +40,7 @@
     "appId": "com.reviewer2.app",
     "productName": "Reviewer 2",
     "executableName": "Reviewer2",
-    "icon": "src/logo/icon.png",
+    "icon": "src/logo/icon.ico",
     "directories": {
       "output": "dist"
     },
@@ -52,14 +52,14 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "src/logo/icon.png",
+      "icon": "src/logo/icon.ico",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
-      "icon": "src/logo/icon.png",
+      "icon": "src/logo/icon.ico",
       "target": {
         "target": "nsis",
         "arch": [
@@ -75,7 +75,7 @@
       "deleteAppDataOnUninstall": true
     },
     "linux": {
-      "icon": "src/logo/icon.png",
+      "icon": "src/logo/icon.ico",
       "target": [
         "AppImage",
         "deb"
