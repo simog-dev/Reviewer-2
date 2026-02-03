@@ -44,11 +44,25 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
+-- Highlights table (simple highlights without annotations)
+CREATE TABLE IF NOT EXISTS highlights (
+    id TEXT PRIMARY KEY,
+    pdf_id TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    selected_text TEXT,
+    highlight_rects TEXT NOT NULL,
+    color TEXT DEFAULT '#fbbf24',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (pdf_id) REFERENCES pdfs(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_annotations_pdf_id ON annotations(pdf_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_page_number ON annotations(page_number);
 CREATE INDEX IF NOT EXISTS idx_annotations_category_id ON annotations(category_id);
 CREATE INDEX IF NOT EXISTS idx_pdfs_name ON pdfs(name);
+CREATE INDEX IF NOT EXISTS idx_highlights_pdf_id ON highlights(pdf_id);
+CREATE INDEX IF NOT EXISTS idx_highlights_page_number ON highlights(page_number);
 
 -- Default categories
 INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order) VALUES

@@ -40,9 +40,11 @@ export class PDFViewer {
     this.onPageChange = options.onPageChange || (() => {});
     this.onTextSelected = options.onTextSelected || (() => {});
     this.onHighlightClick = options.onHighlightClick || (() => {});
+    this.onSimpleHighlightClick = options.onSimpleHighlightClick || (() => {});
 
     this.highlightModeEnabled = false;
     this.annotations = [];
+    this.highlights = [];  // Simple highlights (not annotations)
     this.observer = null;
     this.dualPageMode = false;
 
@@ -160,6 +162,7 @@ export class PDFViewer {
         const clickX = (e.clientX - pageRect.left) / this.scale;
         const clickY = (e.clientY - pageRect.top) / this.scale;
 
+        // First check for annotations
         const hitAnnotation = this.annotations.find(ann => {
           if (ann.page_number !== pageNumber) return false;
           return ann.highlight_rects.some(rect =>
@@ -171,6 +174,21 @@ export class PDFViewer {
         if (hitAnnotation) {
           e.stopPropagation();
           this.onHighlightClick(hitAnnotation, e);
+          return;
+        }
+
+        // Then check for simple highlights
+        const hitHighlight = this.highlights.find(hl => {
+          if (hl.page_number !== pageNumber) return false;
+          return hl.highlight_rects.some(rect =>
+            clickX >= rect.left && clickX <= rect.left + rect.width &&
+            clickY >= rect.top && clickY <= rect.top + rect.height
+          );
+        });
+
+        if (hitHighlight) {
+          e.stopPropagation();
+          this.onSimpleHighlightClick(hitHighlight, e);
         }
       });
 
@@ -207,7 +225,8 @@ export class PDFViewer {
         const mx = (e.clientX - pageRect.left) / this.scale;
         const my = (e.clientY - pageRect.top) / this.scale;
 
-        const overHighlight = this.annotations.some(ann => {
+        // Check annotations
+        const overAnnotation = this.annotations.some(ann => {
           if (ann.page_number !== pageNumber) return false;
           return ann.highlight_rects.some(rect =>
             mx >= rect.left && mx <= rect.left + rect.width &&
@@ -215,7 +234,16 @@ export class PDFViewer {
           );
         });
 
-        textLayerDiv.classList.toggle('over-highlight', overHighlight);
+        // Check simple highlights
+        const overSimpleHighlight = this.highlights.some(hl => {
+          if (hl.page_number !== pageNumber) return false;
+          return hl.highlight_rects.some(rect =>
+            mx >= rect.left && mx <= rect.left + rect.width &&
+            my >= rect.top && my <= rect.top + rect.height
+          );
+        });
+
+        textLayerDiv.classList.toggle('over-highlight', overAnnotation || overSimpleHighlight);
       });
 
       textLayerDiv.addEventListener('mouseleave', () => {
@@ -543,7 +571,13 @@ export class PDFViewer {
 
   setupSelectionListener() {
     document.addEventListener('mouseup', (e) => {
-      if (!this.highlightModeEnabled) return;
+      // HIGHLIGHT MODE: Uncomment the line below to require highlight mode to be enabled
+      // if (!this.highlightModeEnabled) return;
+
+      // Ignore mouseup events on popup elements (they handle their own clicks)
+      if (e.target.closest('#selection-popup') || e.target.closest('#highlight-popup')) {
+        return;
+      }
 
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed) return;
@@ -677,6 +711,11 @@ export class PDFViewer {
     this.renderAllHighlights();
   }
 
+  setHighlights(highlights) {
+    this.highlights = highlights;
+    this.renderAllHighlights();
+  }
+
   renderAllHighlights() {
     // Only update highlights on pages that are already rendered;
     // unrendered pages will get their highlights when renderPageIfNeeded runs
@@ -695,8 +734,15 @@ export class PDFViewer {
     ctx.clearRect(0, 0, elements.highlightCanvas.width, elements.highlightCanvas.height);
 
     const pixelRatio = window.devicePixelRatio || 1;
-    const pageAnnotations = this.annotations.filter(a => a.page_number === pageNumber);
 
+    // Draw simple highlights first (so annotations are on top)
+    const pageHighlights = this.highlights.filter(h => h.page_number === pageNumber);
+    for (const hl of pageHighlights) {
+      this._drawSimpleHighlightRects(ctx, hl, pixelRatio, 0.3);
+    }
+
+    // Then draw annotation highlights
+    const pageAnnotations = this.annotations.filter(a => a.page_number === pageNumber);
     for (const ann of pageAnnotations) {
       this._drawAnnotationRects(ctx, ann, pixelRatio, 0.75);
     }
@@ -723,6 +769,26 @@ export class PDFViewer {
     ctx.fillStyle = fillStyle;
 
     for (const rect of annotation.highlight_rects) {
+      ctx.fillRect(
+        rect.left * this.scale * pixelRatio,
+        rect.top * this.scale * pixelRatio,
+        rect.width * this.scale * pixelRatio,
+        rect.height * this.scale * pixelRatio
+      );
+    }
+  }
+
+  // Draw the rectangles for a simple highlight (not annotation)
+  _drawSimpleHighlightRects(ctx, highlight, pixelRatio, alpha) {
+    if (!highlight.highlight_rects || highlight.highlight_rects.length === 0) {
+      return;
+    }
+
+    // Use highlight color (default yellow #fbbf24)
+    const color = highlight.color || '#fbbf24';
+    ctx.fillStyle = this._hexToRgba(color, alpha);
+
+    for (const rect of highlight.highlight_rects) {
       ctx.fillRect(
         rect.left * this.scale * pixelRatio,
         rect.top * this.scale * pixelRatio,

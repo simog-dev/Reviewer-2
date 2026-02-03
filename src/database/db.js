@@ -167,7 +167,21 @@ class DBManager {
       getSetting: this.db.prepare(`SELECT value FROM settings WHERE key = ?`),
       setSetting: this.db.prepare(`
         INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)
-      `)
+      `),
+
+      // Highlights
+      insertHighlight: this.db.prepare(`
+        INSERT INTO highlights (id, pdf_id, page_number, selected_text, highlight_rects, color, created_at)
+        VALUES (@id, @pdfId, @pageNumber, @selectedText, @highlightRects, @color, datetime('now'))
+      `),
+      getHighlightsForPDF: this.db.prepare(`
+        SELECT * FROM highlights
+        WHERE pdf_id = ?
+        ORDER BY page_number ASC, created_at ASC
+      `),
+      getHighlight: this.db.prepare(`SELECT * FROM highlights WHERE id = ?`),
+      deleteHighlight: this.db.prepare(`DELETE FROM highlights WHERE id = ?`),
+      deleteHighlightsForPDF: this.db.prepare(`DELETE FROM highlights WHERE pdf_id = ?`)
     };
   }
 
@@ -421,6 +435,51 @@ class DBManager {
   setSetting(key, value) {
     const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
     this.stmts.setSetting.run(key, stringValue);
+  }
+
+  // Highlight Methods
+  addHighlight(highlightData) {
+    const id = uuidv4();
+
+    // Ensure highlightRects is a string (JSON)
+    let highlightRectsJson;
+    if (typeof highlightData.highlightRects === 'string') {
+      highlightRectsJson = highlightData.highlightRects;
+    } else {
+      highlightRectsJson = JSON.stringify(highlightData.highlightRects || []);
+    }
+
+    const data = {
+      id,
+      pdfId: highlightData.pdfId,
+      pageNumber: highlightData.pageNumber,
+      selectedText: highlightData.selectedText || null,
+      highlightRects: highlightRectsJson,
+      color: highlightData.color || '#fbbf24'
+    };
+
+    this.stmts.insertHighlight.run(data);
+    return this.getHighlight(id);
+  }
+
+  getHighlightsForPDF(pdfId) {
+    const highlights = this.stmts.getHighlightsForPDF.all(pdfId);
+    return highlights.map(h => ({
+      ...h,
+      highlight_rects: JSON.parse(h.highlight_rects)
+    }));
+  }
+
+  getHighlight(id) {
+    const highlight = this.stmts.getHighlight.get(id);
+    if (highlight) {
+      highlight.highlight_rects = JSON.parse(highlight.highlight_rects);
+    }
+    return highlight;
+  }
+
+  deleteHighlight(id) {
+    return this.stmts.deleteHighlight.run(id);
   }
 
   close() {

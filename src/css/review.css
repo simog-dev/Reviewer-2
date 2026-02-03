@@ -115,8 +115,10 @@
 }
 
 /* Highlight Mode Toggle */
+/* HIGHLIGHT MODE: Remove display:none to show the button again */
 .btn-highlight {
   position: relative;
+  display: none; /* Hidden - always-on highlight mode */
 }
 
 .btn-highlight:focus {
@@ -507,6 +509,127 @@
   display: block;
 }
 
+/* Popup Actions (Highlight + Annotate buttons) */
+.popup-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: 0;
+}
+
+.selection-popup .popup-actions {
+  margin-bottom: 0;
+}
+
+.selection-popup.show-categories .popup-actions {
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.popup-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+
+.popup-action-btn:hover {
+  transform: scale(1.05);
+}
+
+.popup-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Highlight button - yellow */
+.popup-action-btn.highlight-btn {
+  background-color: #fbbf24;
+  color: #1a1a1a;
+}
+
+.popup-action-btn.highlight-btn:hover {
+  background-color: #f59e0b;
+}
+
+/* Annotate button - primary */
+.popup-action-btn.annotate-btn {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.popup-action-btn.annotate-btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+/* Delete button - red */
+.popup-action-btn.delete-btn {
+  background-color: #dc2626;
+  color: white;
+}
+
+.popup-action-btn.delete-btn:hover {
+  background-color: #b91c1c;
+}
+
+/* Convert button - primary */
+.popup-action-btn.convert-btn {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.popup-action-btn.convert-btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+/* Tooltip for popup action buttons */
+.popup-action-btn[data-tooltip]:hover::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.popup-action-btn[data-tooltip]:hover::after {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1e1e2e;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Category Selection (hidden by default) */
+.category-selection {
+  display: none;
+}
+
+.category-selection.visible {
+  display: block;
+}
+
 .selection-popup-title {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -576,6 +699,51 @@
 .category-btn.minor { background-color: var(--color-minor); }
 .category-btn.suggestion { background-color: var(--color-suggestion); }
 .category-btn.question { background-color: var(--color-question); }
+
+/* Highlight Popup (for existing highlights) */
+.highlight-popup {
+  position: fixed;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-sm);
+  z-index: var(--z-dropdown);
+  display: none;
+}
+
+.highlight-popup.active {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+/* Match highlight popup buttons to category button size */
+.highlight-popup .popup-action-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.highlight-popup .popup-action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Softer colors for highlight popup buttons */
+.highlight-popup .popup-action-btn.delete-btn {
+  background-color: #ef4444;
+}
+
+.highlight-popup .popup-action-btn.delete-btn:hover {
+  background-color: #dc2626;
+}
+
+.highlight-popup .popup-action-btn.convert-btn {
+  background-color: #3b82f6;
+}
+
+.highlight-popup .popup-action-btn.convert-btn:hover {
+  background-color: #2563eb;
+}
 
 /* Annotation Modal */
 .annotation-modal .modal {

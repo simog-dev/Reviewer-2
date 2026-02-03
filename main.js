@@ -344,6 +344,19 @@ ipcMain.handle('settings:set', async (event, key, value) => {
   return db.setSetting(key, value);
 });
 
+// Database Operations - Highlights
+ipcMain.handle('db:addHighlight', async (event, highlightData) => {
+  return db.addHighlight(highlightData);
+});
+
+ipcMain.handle('db:getHighlightsForPDF', async (event, pdfId) => {
+  return db.getHighlightsForPDF(pdfId);
+});
+
+ipcMain.handle('db:deleteHighlight', async (event, id) => {
+  return db.deleteHighlight(id);
+});
+
 // Navigation
 ipcMain.handle('navigate:review', async (event, pdfId) => {
   mainWindow.loadFile('src/review.html', { query: { id: pdfId } });

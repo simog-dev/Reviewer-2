@@ -18,6 +18,8 @@ let highlightMode = false;
 let pendingSelection = null;
 let editingAnnotationId = null;
 let popupJustShown = false;
+let highlights = [];
+let clickedHighlight = null;
 
 // DOM Elements
 const pdfTitle = document.getElementById('pdf-title');
@@ -41,6 +43,12 @@ const categoryFilters = document.getElementById('category-filters');
 
 const selectionPopup = document.getElementById('selection-popup');
 const categoryButtons = document.getElementById('category-buttons');
+const categorySelection = document.getElementById('category-selection');
+const btnQuickHighlight = document.getElementById('btn-quick-highlight');
+const btnAnnotate = document.getElementById('btn-annotate');
+const highlightPopup = document.getElementById('highlight-popup');
+const btnHighlightDelete = document.getElementById('btn-highlight-delete');
+const btnHighlightConvert = document.getElementById('btn-highlight-convert');
 
 const annotationModal = document.getElementById('annotation-modal');
 const modalTitle = document.getElementById('modal-title');
@@ -111,6 +119,7 @@ async function init() {
   await loadCategories();
   await loadPDF();
   await loadAnnotations();
+  await loadHighlights();
   await checkLLMReady();
 
   setupEventListeners();
@@ -152,7 +161,8 @@ async function loadPDF() {
         currentPageEl.textContent = page;
       },
       onTextSelected: handleTextSelected,
-      onHighlightClick: handleHighlightClick
+      onHighlightClick: handleHighlightClick,
+      onSimpleHighlightClick: handleSimpleHighlightClick
     });
 
     const totalPages = await pdfViewer.load(fileData);
@@ -177,6 +187,12 @@ async function loadAnnotations() {
   renderAnnotationList(annotations);
   updateAnnotationCount();
   updateCategoryFilterCounts();
+}
+
+// Load highlights
+async function loadHighlights() {
+  highlights = await window.api.getHighlightsForPDF(pdfId);
+  pdfViewer.setHighlights(highlights);
 }
 
 // Build the list of categories to show in filters:
@@ -312,10 +328,12 @@ function updateCategoryFilterCounts() {
 // Event handlers
 function handleTextSelected({ pageNumber, selectedText, rects, mouseX, mouseY }) {
   console.log('handleTextSelected called:', { pageNumber, selectedText, rects: rects?.length });
-  if (!highlightMode) {
-    console.log('Highlight mode not enabled, ignoring');
-    return;
-  }
+
+  // HIGHLIGHT MODE: Uncomment the lines below to require highlight mode to be enabled
+  // if (!highlightMode) {
+  //   console.log('Highlight mode not enabled, ignoring');
+  //   return;
+  // }
 
   pendingSelection = { pageNumber, selectedText, rects };
   console.log('pendingSelection set:', pendingSelection);
@@ -334,6 +352,106 @@ function handleHighlightClick(annotation, event, isContextMenu = false) {
   } else {
     scrollToAnnotationCard(annotation.id);
   }
+}
+
+// Handle click on a simple highlight (not annotation)
+function handleSimpleHighlightClick(highlight, event) {
+  clickedHighlight = highlight;
+  showHighlightPopup(event.clientX, event.clientY);
+}
+
+// Show highlight popup for existing highlights
+function showHighlightPopup(x, y) {
+  highlightPopup.style.left = `${x}px`;
+  highlightPopup.style.top = `${y + 10}px`;
+  highlightPopup.classList.add('active');
+}
+
+// Hide highlight popup
+function hideHighlightPopup() {
+  highlightPopup.classList.remove('active');
+  clickedHighlight = null;
+}
+
+// Quick highlight without annotation
+async function createQuickHighlight() {
+  if (!pendingSelection) return;
+
+  try {
+    const highlight = await window.api.addHighlight({
+      pdfId: pdfId,
+      pageNumber: pendingSelection.pageNumber,
+      selectedText: pendingSelection.selectedText,
+      highlightRects: pendingSelection.rects,
+      color: '#fbbf24'
+    });
+
+    highlights.push(highlight);
+    pdfViewer.setHighlights(highlights);
+    hideSelectionPopup();
+    showToast('Text highlighted', 'success');
+  } catch (error) {
+    console.error('Error creating highlight:', error);
+    showToast('Failed to create highlight', 'error');
+  }
+}
+
+// Delete a simple highlight
+async function deleteHighlight(highlightId) {
+  try {
+    await window.api.deleteHighlight(highlightId);
+    highlights = highlights.filter(h => h.id !== highlightId);
+    pdfViewer.setHighlights(highlights);
+    hideHighlightPopup();
+    showToast('Highlight removed', 'success');
+  } catch (error) {
+    console.error('Error deleting highlight:', error);
+    showToast('Failed to remove highlight', 'error');
+  }
+}
+
+// Convert highlight to annotation
+function convertHighlightToAnnotation(highlight, popupX, popupY) {
+  // Set up pending selection with highlight data
+  pendingSelection = {
+    pageNumber: highlight.page_number,
+    selectedText: highlight.selected_text,
+    rects: highlight.highlight_rects
+  };
+
+  // Store highlight id to delete after annotation is created
+  pendingSelection.convertFromHighlightId = highlight.id;
+
+  // Show category selection at the same position as highlight popup
+  showCategorySelectionForConversion(popupX, popupY);
+
+  hideHighlightPopup();
+}
+
+// Show category selection for converting highlight
+function showCategorySelectionForConversion(x, y) {
+  selectionPopup.style.left = `${x}px`;
+  selectionPopup.style.top = `${y}px`;
+  selectionPopup.classList.add('active', 'show-categories');
+  categorySelection.classList.remove('hidden');
+  categorySelection.classList.add('visible');
+
+  // Hide the highlight/annotate action buttons
+  const popupActions = selectionPopup.querySelector('.popup-actions');
+  if (popupActions) {
+    popupActions.style.display = 'none';
+  }
+
+  // Prevent document click handler from immediately closing this popup
+  popupJustShown = true;
+  requestAnimationFrame(() => { popupJustShown = false; });
+}
+
+// Show annotate options (expand category selection)
+function showAnnotateOptions() {
+  selectionPopup.classList.add('show-categories');
+  categorySelection.classList.remove('hidden');
+  categorySelection.classList.add('visible');
 }
 
 function handleAnnotationCreated(annotation) {
@@ -366,19 +484,29 @@ function handleAnnotationDeleted(annotationId) {
 }
 
 // UI Actions
-function toggleHighlightMode() {
-  highlightMode = !highlightMode;
-  btnHighlight.classList.toggle('active', highlightMode);
-  pdfViewer.setHighlightMode(highlightMode);
-
-  if (!highlightMode) {
-    hideSelectionPopup();
-  }
-}
+// HIGHLIGHT MODE: Uncomment to re-enable highlight mode toggle
+// function toggleHighlightMode() {
+//   highlightMode = !highlightMode;
+//   btnHighlight.classList.toggle('active', highlightMode);
+//   pdfViewer.setHighlightMode(highlightMode);
+//
+//   if (!highlightMode) {
+//     hideSelectionPopup();
+//   }
+// }
 
 function hideSelectionPopup() {
   const wasActive = selectionPopup.classList.contains('active');
-  selectionPopup.classList.remove('active');
+  selectionPopup.classList.remove('active', 'show-categories');
+  categorySelection.classList.remove('visible');
+  categorySelection.classList.add('hidden');
+
+  // Reset popup actions visibility
+  const popupActions = selectionPopup.querySelector('.popup-actions');
+  if (popupActions) {
+    popupActions.style.display = '';
+  }
+
   pendingSelection = null;
   // Only clear text selection if the popup was showing (highlight mode flow)
   if (wasActive) {
@@ -490,6 +618,13 @@ async function saveAnnotation() {
         highlightRects: pendingSelection.rects
       });
       console.log('Annotation created:', result);
+
+      // If converting from highlight, delete the highlight
+      if (pendingSelection.convertFromHighlightId) {
+        await window.api.deleteHighlight(pendingSelection.convertFromHighlightId);
+        highlights = highlights.filter(h => h.id !== pendingSelection.convertFromHighlightId);
+        pdfViewer.setHighlights(highlights);
+      }
     } else {
       console.log('No editingAnnotationId or pendingSelection - nothing to save');
     }
@@ -795,7 +930,8 @@ function setupEventListeners() {
   });
 
   // Highlight mode
-  btnHighlight.addEventListener('click', toggleHighlightMode);
+  // HIGHLIGHT MODE: Uncomment to re-enable highlight mode toggle
+  // btnHighlight.addEventListener('click', toggleHighlightMode);
 
   // Add free note button
   const addFreeNoteBtn = document.getElementById('btn-add-free-note');
@@ -851,6 +987,32 @@ function setupEventListeners() {
     item.addEventListener('click', () => {
       exportAnnotations(item.dataset.format);
     });
+  });
+
+  // Quick highlight button
+  btnQuickHighlight.addEventListener('click', () => {
+    createQuickHighlight();
+  });
+
+  // Annotate button (show category selection)
+  btnAnnotate.addEventListener('click', () => {
+    showAnnotateOptions();
+  });
+
+  // Highlight popup buttons
+  btnHighlightDelete.addEventListener('click', () => {
+    if (clickedHighlight) {
+      deleteHighlight(clickedHighlight.id);
+    }
+  });
+
+  btnHighlightConvert.addEventListener('click', () => {
+    if (clickedHighlight) {
+      // Get current highlight popup position to show category selection in same place
+      const popupX = parseInt(highlightPopup.style.left, 10);
+      const popupY = parseInt(highlightPopup.style.top, 10);
+      convertHighlightToAnnotation(clickedHighlight, popupX, popupY);
+    }
   });
 
   // Category buttons in selection popup
@@ -1006,6 +1168,10 @@ function setupEventListeners() {
         !annotationModal.classList.contains('active')) {
       hideSelectionPopup();
     }
+    // Close highlight popup when clicking outside of it
+    if (!highlightPopup.contains(e.target)) {
+      hideHighlightPopup();
+    }
   });
 
   // Webview navigation controls
@@ -1132,10 +1298,11 @@ function setupKeyboardShortcuts() {
     }
 
     // H: Toggle highlight mode
-    if (e.key === 'h' || e.key === 'H') {
-      e.preventDefault();
-      toggleHighlightMode();
-    }
+    // HIGHLIGHT MODE: Uncomment to re-enable highlight mode toggle
+    // if (e.key === 'h' || e.key === 'H') {
+    //   e.preventDefault();
+    //   toggleHighlightMode();
+    // }
 
     // N: Add free note
     if (e.key === 'n' || e.key === 'N') {

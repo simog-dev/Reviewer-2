@@ -151,6 +151,9 @@ export class AnnotationManager {
   }
 
   async exportAsJSON() {
+    // Get highlights for this PDF
+    const highlights = await window.api.getHighlightsForPDF(this.pdfId);
+
     const data = {
       exportedAt: new Date().toISOString(),
       pdfId: this.pdfId,
@@ -163,6 +166,13 @@ export class AnnotationManager {
         comment: a.comment,
         createdAt: a.created_at,
         updatedAt: a.updated_at
+      })),
+      totalHighlights: highlights.length,
+      highlights: highlights.map(h => ({
+        id: h.id,
+        pageNumber: h.page_number,
+        selectedText: h.selected_text,
+        createdAt: h.created_at
       }))
     };
 
@@ -170,8 +180,14 @@ export class AnnotationManager {
   }
 
   async exportAsCSV() {
-    const headers = ['Category', 'Page', 'Selected Text', 'Comment', 'Created At'];
-    const rows = this.annotations.map(a => [
+    // Get highlights for this PDF
+    const highlights = await window.api.getHighlightsForPDF(this.pdfId);
+
+    const headers = ['Type', 'Category', 'Page', 'Selected Text', 'Comment', 'Created At'];
+
+    // Annotation rows
+    const annotationRows = this.annotations.map(a => [
+      'Annotation',
       a.category_name,
       a.page_number,
       `"${(a.selected_text || '').replace(/"/g, '""')}"`,
@@ -179,7 +195,18 @@ export class AnnotationManager {
       formatDate(a.created_at, true)
     ]);
 
-    return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    // Highlight rows
+    const highlightRows = highlights.map(h => [
+      'Highlight',
+      '',
+      h.page_number,
+      `"${(h.selected_text || '').replace(/"/g, '""')}"`,
+      '',
+      formatDate(h.created_at, true)
+    ]);
+
+    const allRows = [...annotationRows, ...highlightRows];
+    return [headers.join(','), ...allRows.map(r => r.join(','))].join('\n');
   }
 }
 

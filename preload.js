@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('api', {
   deleteAnnotation: (id) => ipcRenderer.invoke('db:deleteAnnotation', id),
   getAnnotationCountByCategory: (pdfId) => ipcRenderer.invoke('db:getAnnotationCountByCategory', pdfId),
 
+  // Database Operations - Highlights
+  addHighlight: (highlightData) => ipcRenderer.invoke('db:addHighlight', highlightData),
+  getHighlightsForPDF: (pdfId) => ipcRenderer.invoke('db:getHighlightsForPDF', pdfId),
+  deleteHighlight: (id) => ipcRenderer.invoke('db:deleteHighlight', id),
+
   // Database Operations - Categories
   getAllCategories: () => ipcRenderer.invoke('db:getAllCategories'),
   getActiveCategories: () => ipcRenderer.invoke('db:getActiveCategories'),
