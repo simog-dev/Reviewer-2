@@ -519,6 +519,11 @@ export class PDFViewer {
     }
   }
 
+  goToPage(pageNumber) {
+    // Alias for scrollToPage for consistency
+    this.scrollToPage(pageNumber);
+  }
+
   // Scroll an element into view within this.container without affecting outer layout.
   _scrollElementIntoContainer(element, block = 'center') {
     const containerRect = this.container.getBoundingClientRect();
@@ -699,6 +704,11 @@ export class PDFViewer {
 
   // Draw the rectangles for a single annotation on a canvas context
   _drawAnnotationRects(ctx, annotation, pixelRatio, alpha) {
+    // Skip free notes (annotations with no highlight rectangles)
+    if (!annotation.highlight_rects || annotation.highlight_rects.length === 0) {
+      return;
+    }
+
     // Use category_color from the annotation (fetched from DB via JOIN)
     // If not available, fall back to hardcoded colors
     let fillStyle;
@@ -760,7 +770,16 @@ export class PDFViewer {
     await this.renderPageIfNeeded(annotation.page_number);
 
     const elements = this.pageElements.get(annotation.page_number);
-    if (!elements || !elements.highlightCanvas.width) return;
+    if (!elements) return;
+
+    // For free notes (no highlight rects), just scroll to the page
+    if (!annotation.highlight_rects || annotation.highlight_rects.length === 0) {
+      this._scrollElementIntoContainer(elements.container, 'center');
+      return;
+    }
+
+    // Regular annotations with highlights: flash the highlight
+    if (!elements.highlightCanvas.width) return;
 
     const pixelRatio = window.devicePixelRatio || 1;
     const ctx = elements.highlightCanvas.getContext('2d');

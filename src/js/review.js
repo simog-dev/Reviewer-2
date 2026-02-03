@@ -56,6 +56,8 @@ const contextMenu = document.getElementById('context-menu');
 const categoryMenu = document.getElementById('category-menu');
 const toastContainer = document.getElementById('toast-container');
 const btnGenerateReview = document.getElementById('btn-generate-review');
+const llmConfigTooltip = document.getElementById('llm-config-tooltip');
+const llmConfigSettingsLink = document.getElementById('llm-config-settings-link');
 
 const completionModal = document.getElementById('completion-modal');
 const completionModalClose = document.getElementById('completion-modal-close');
@@ -277,6 +279,7 @@ function renderAnnotationList(annotations) {
     card.setAttribute('selected-text', annotation.selected_text || '');
     card.setAttribute('comment', annotation.comment || '');
     card.setAttribute('created-at', annotation.created_at);
+    card.setAttribute('highlight-rects', JSON.stringify(annotation.highlight_rects || []));
 
     annotationList.appendChild(card);
   });
@@ -383,6 +386,32 @@ function hideSelectionPopup() {
   }
 }
 
+function showFreeNoteModal() {
+  modalTitle.textContent = 'Add Note';
+
+  // Hide selected text group for free notes
+  document.getElementById('selected-text-group').style.display = 'none';
+
+  // Set first category
+  const firstCategory = activeCategories[0];
+  categoryBadge.textContent = firstCategory.name;
+  categoryBadge.style.backgroundColor = firstCategory.color;
+  categorySelect.value = firstCategory.id;
+
+  commentInput.value = '';
+
+  // Flag as free note - use current page
+  pendingSelection = {
+    isFreeNote: true,
+    pageNumber: pdfViewer.currentPage,
+    selectedText: null,
+    rects: []
+  };
+
+  annotationModal.classList.add('active');
+  commentInput.focus();
+}
+
 function showAnnotationModal(categoryId) {
   if (!pendingSelection) return;
 
@@ -393,7 +422,17 @@ function showAnnotationModal(categoryId) {
   selectionPopup.classList.remove('active');
 
   modalTitle.textContent = editingAnnotationId ? 'Edit Annotation' : 'Add Annotation';
-  selectedTextPreview.textContent = pendingSelection.selectedText;
+
+  // Show/hide sections based on note type
+  if (pendingSelection.isFreeNote) {
+    // Free notes: hide selected text group
+    document.getElementById('selected-text-group').style.display = 'none';
+  } else {
+    // Regular annotations: show selected text
+    document.getElementById('selected-text-group').style.display = 'block';
+    selectedTextPreview.textContent = pendingSelection.selectedText;
+  }
+
   categoryBadge.textContent = category.name;
   categoryBadge.style.backgroundColor = category.color;
   categorySelect.value = categoryId;
@@ -412,8 +451,13 @@ function showAnnotationModal(categoryId) {
 
 function hideAnnotationModal() {
   annotationModal.classList.remove('active');
-  hideSelectionPopup();
+  pendingSelection = null;
   editingAnnotationId = null;
+  selectionPopup.classList.remove('active');
+  // Clear text selection only if we were in highlight mode
+  if (highlightMode) {
+    pdfViewer.clearSelection();
+  }
 }
 
 async function saveAnnotation() {
@@ -430,18 +474,18 @@ async function saveAnnotation() {
         comment: commentInput.value.trim()
       });
     } else if (pendingSelection) {
-      // Create new
+      // Create new annotation
       console.log('Creating new annotation with:', {
         categoryId: parseInt(categorySelect.value, 10),
         pageNumber: pendingSelection.pageNumber,
-        selectedText: pendingSelection.selectedText,
+        selectedText: pendingSelection.selectedText || null,
         comment: commentInput.value.trim(),
         highlightRects: pendingSelection.rects
       });
       const result = await annotationManager.createAnnotation({
         categoryId: parseInt(categorySelect.value, 10),
         pageNumber: pendingSelection.pageNumber,
-        selectedText: pendingSelection.selectedText,
+        selectedText: pendingSelection.selectedText || null,
         comment: commentInput.value.trim(),
         highlightRects: pendingSelection.rects
       });
@@ -580,10 +624,8 @@ async function checkLLMReady() {
   const apiKey = await window.api.getSetting('llm_api_key');
   if (apiKey) {
     btnGenerateReview.disabled = false;
-    btnGenerateReview.removeAttribute('data-tooltip');
   } else {
     btnGenerateReview.disabled = true;
-    btnGenerateReview.setAttribute('data-tooltip', 'API key required — configure in Settings');
   }
 }
 
@@ -755,6 +797,12 @@ function setupEventListeners() {
   // Highlight mode
   btnHighlight.addEventListener('click', toggleHighlightMode);
 
+  // Add free note button
+  const addFreeNoteBtn = document.getElementById('btn-add-free-note');
+  addFreeNoteBtn.addEventListener('click', () => {
+    showFreeNoteModal();
+  });
+
   // Sort
   sortSelect.addEventListener('change', (e) => {
     annotationManager.setSortBy(e.target.value);
@@ -762,6 +810,39 @@ function setupEventListeners() {
 
   // Generate Review
   btnGenerateReview.addEventListener('click', generateReview);
+
+  // LLM Configuration Tooltip
+  let tooltipHideTimeout;
+
+  btnGenerateReview.addEventListener('mouseenter', () => {
+    if (btnGenerateReview.disabled) {
+      clearTimeout(tooltipHideTimeout);
+      llmConfigTooltip.classList.add('visible');
+    }
+  });
+
+  btnGenerateReview.addEventListener('mouseleave', (e) => {
+    if (!llmConfigTooltip.contains(e.relatedTarget)) {
+      tooltipHideTimeout = setTimeout(() => {
+        llmConfigTooltip.classList.remove('visible');
+      }, 150);
+    }
+  });
+
+  llmConfigTooltip.addEventListener('mouseenter', () => {
+    clearTimeout(tooltipHideTimeout);
+  });
+
+  llmConfigTooltip.addEventListener('mouseleave', () => {
+    tooltipHideTimeout = setTimeout(() => {
+      llmConfigTooltip.classList.remove('visible');
+    }, 150);
+  });
+
+  llmConfigSettingsLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.api.navigateToSettings();
+  });
 
   // Export
   btnExport.addEventListener('click', toggleExportMenu);
@@ -848,8 +929,18 @@ function setupEventListeners() {
 
   // Annotation card events
   document.addEventListener('annotation-click', (e) => {
-    const { id } = e.detail;
-    scrollToHighlight(id);
+    const annotation = annotationManager.getAnnotation(e.detail.id);
+    if (!annotation) return;
+
+    if (e.detail.isFreeNote) {
+      // For free notes: go to page only
+      pdfViewer.goToPage(annotation.page_number);
+      scrollToAnnotationCard(annotation.id);
+    } else {
+      // Regular annotations: scroll to highlight
+      scrollToHighlight(e.detail.id);
+      scrollToAnnotationCard(annotation.id);
+    }
   });
 
   document.addEventListener('annotation-edit', (e) => {
@@ -908,9 +999,11 @@ function setupEventListeners() {
     }
     // Close selection popup when clicking outside of it
     // Skip if popup was just shown this frame (selection mouseup + click fire together)
+    // Also skip if the annotation modal is open (don't reset pendingSelection while modal is open)
     if (!popupJustShown &&
         !selectionPopup.contains(e.target) &&
-        !annotationModal.contains(e.target)) {
+        !annotationModal.contains(e.target) &&
+        !annotationModal.classList.contains('active')) {
       hideSelectionPopup();
     }
   });
@@ -1042,6 +1135,14 @@ function setupKeyboardShortcuts() {
     if (e.key === 'h' || e.key === 'H') {
       e.preventDefault();
       toggleHighlightMode();
+    }
+
+    // N: Add free note
+    if (e.key === 'n' || e.key === 'N') {
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault();
+        showFreeNoteModal();
+      }
     }
 
     // Escape: Close modal/deselect

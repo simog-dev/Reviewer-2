@@ -1,0 +1,2 @@
+- Lo scroll-to-text dopo aver cliccato su una nota è impreciso. Avevamo ovviato aggiungendo un off-set di 200px ma non funziona bene su tutti gli schermi.
+- Se si crea una nota singola (no testo evidenziato), dev'essere obbligatorio inserire un testo di commento.

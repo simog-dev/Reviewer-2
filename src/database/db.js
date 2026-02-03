@@ -267,6 +267,32 @@ class DBManager {
 
   // Annotation Methods
   addAnnotation(annotationData) {
+    // Validate required fields
+    if (!annotationData.pdfId || !annotationData.categoryId || annotationData.pageNumber == null) {
+      throw new Error('Missing required fields: pdfId, categoryId, and pageNumber are required');
+    }
+
+    // Normalize highlightRects: default to empty array if not provided
+    let highlightRects = annotationData.highlightRects;
+    if (!highlightRects) {
+      highlightRects = [];
+    }
+
+    // Ensure highlightRects is a string (JSON)
+    let highlightRectsJson;
+    if (typeof highlightRects === 'string') {
+      highlightRectsJson = highlightRects;
+    } else {
+      highlightRectsJson = JSON.stringify(highlightRects);
+    }
+
+    // Validate JSON format
+    try {
+      JSON.parse(highlightRectsJson);
+    } catch (e) {
+      throw new Error('highlightRects must be valid JSON');
+    }
+
     const id = uuidv4();
     const data = {
       id,
@@ -275,7 +301,7 @@ class DBManager {
       pageNumber: annotationData.pageNumber,
       selectedText: annotationData.selectedText || null,
       comment: annotationData.comment || null,
-      highlightRects: JSON.stringify(annotationData.highlightRects)
+      highlightRects: highlightRectsJson
     };
 
     this.stmts.insertAnnotation.run(data);

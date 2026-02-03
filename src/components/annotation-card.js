@@ -8,7 +8,7 @@ class AnnotationCard extends HTMLElement {
 
   static get observedAttributes() {
     return ['annotation-id', 'category-name', 'category-color', 'category-icon',
-            'page-number', 'selected-text', 'comment', 'created-at'];
+            'page-number', 'selected-text', 'comment', 'created-at', 'highlight-rects'];
   }
 
   connectedCallback() {
@@ -52,6 +52,36 @@ class AnnotationCard extends HTMLElement {
 
   get createdAt() {
     return this.getAttribute('created-at') || new Date().toISOString();
+  }
+
+  get highlightRects() {
+    return this.getAttribute('highlight-rects') || '[]';
+  }
+
+  /**
+   * Format selected text to show start and end
+   * @param {string} text - The full selected text
+   * @returns {string} Formatted text as "(start...end)"
+   */
+  formatSelectedTextPreview(text) {
+    if (!text) return '';
+
+    // Remove extra whitespace and newlines
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+
+    // If text is short enough, show it all
+    if (cleanText.length <= 60) {
+      return `${cleanText}`;
+    }
+
+    // Show first ~30 chars and last ~30 chars
+    const startLength = 30;
+    const endLength = 30;
+
+    const start = cleanText.substring(0, startLength).trim();
+    const end = cleanText.substring(cleanText.length - endLength).trim();
+
+    return `${start} [...] ${end}`;
   }
 
   render() {
@@ -167,10 +197,7 @@ class AnnotationCard extends HTMLElement {
           color: var(--color-text-secondary, #a3a3a3);
           font-style: italic;
           margin-bottom: 4px;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+          line-height: 1.4;
         }
 
         .comment {
@@ -192,11 +219,41 @@ class AnnotationCard extends HTMLElement {
           font-size: 0.6875rem;
           color: var(--color-text-muted, #737373);
         }
+        .note-icon {
+          width: 14px;
+          height: 14px;
+          margin-left: 4px;
+          color: var(--color-text-muted, #737373);
+        }
       </style>
     `;
 
-    const displayText = this.comment || truncateText(this.selectedText, 100);
-    const showSelectedText = this.comment && this.selectedText;
+    // Detect free notes
+    const isFreeNote = !this.selectedText && JSON.parse(this.highlightRects).length === 0;
+
+    // Format display text based on annotation type
+    let displayText;
+    if (isFreeNote) {
+      displayText = this.comment || 'Note without highlight';
+    } else if (this.selectedText && !this.comment) {
+      // Show formatted preview if there's only selected text
+      displayText = this.formatSelectedTextPreview(this.selectedText);
+    } else if (this.comment) {
+      displayText = this.comment;
+    } else {
+      displayText = 'No content';
+    }
+
+    // Show selected text preview if there's both selected text and comment
+    const showSelectedTextPreview = this.comment && this.selectedText;
+
+    // Note icon for free notes
+    const noteIcon = isFreeNote ? `
+      <svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" title="Free note">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+    ` : '';
 
     this.shadowRoot.innerHTML = `
       ${styles}
@@ -207,6 +264,7 @@ class AnnotationCard extends HTMLElement {
             ${this.categoryName}
           </span>
           <span class="page-badge">Page ${this.pageNumber}</span>
+          ${noteIcon}
           <div class="card-actions">
             <button class="action-btn edit" title="Edit" aria-label="Edit annotation">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -223,8 +281,8 @@ class AnnotationCard extends HTMLElement {
           </div>
         </div>
         <div class="card-content">
-          ${showSelectedText ? `<div class="selected-text">"${truncateText(this.selectedText, 80)}"</div>` : ''}
-          <div class="comment">${displayText || 'No comment'}</div>
+          ${showSelectedTextPreview ? `<div class="selected-text">${this.formatSelectedTextPreview(this.selectedText)}</div>` : ''}
+          <div class="comment">${displayText}</div>
         </div>
         <div class="card-footer">
           <span class="timestamp">${formatRelativeTime(this.createdAt)}</span>
@@ -240,10 +298,14 @@ class AnnotationCard extends HTMLElement {
 
     card.addEventListener('click', (e) => {
       if (e.target.closest('.action-btn')) return;
+
+      // Check if this is a free note
+      const isFreeNote = !this.selectedText && JSON.parse(this.highlightRects).length === 0;
+
       this.dispatchEvent(new CustomEvent('annotation-click', {
         bubbles: true,
         composed: true,
-        detail: { id: this.annotationId }
+        detail: { id: this.annotationId, isFreeNote: isFreeNote }
       }));
     });
 

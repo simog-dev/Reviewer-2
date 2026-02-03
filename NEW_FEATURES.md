@@ -31,6 +31,7 @@
 - Possibilità di evidenziare testo **senza creare un’annotazione**
 - Da valutare:
   - Due bottoni separati nel pop-up: **Annotate** e **Highlight**
+  - No bottoni, alla selezione del testo appare un pop-up con due icone (Una per annotate e una per highlight), se si clicca su highlight viene semplicemente evidenziato il testo (nessuna annotazione), se viene cliccato il tasto Annotate, appare il pop-up di scelta della categoria e poi si apre il modal per inserire il commento (come funziona adesso)
 
 ### 4. Importare delle annotazioni (per il futuro)
 - Dopo aver caricato un PDF dev'essere possibile caricare delle annotazioni esportate in precedenza o da un altro utente
@@ -43,21 +44,24 @@
 
 ## Minor Features
 
-### 1. Note libere
+### 1. [COMPLETA] Note libere
 - Possibilità di aggiungere una **Nota** non legata a un’evidenziazione
-- La nota appare come **comment** nella lista delle annotazioni
+  - Bottone sotto i filtri nella tab Annotations "+ Note" (o simile). Al click si apre la finestra solita per aggiungere un'annotazione ma senza nessun testo di riferimento.
 
-### 2. Miglioramento card annotazioni
+### 2. [COMPLETA] Miglioramento card annotazioni
 - Nella card dell’annotazione mostrare:
   - Inizio e fine del testo evidenziato  
   - Esempio:  
     `(Questo è l'inizio...questa è la fine.)`
 
-### 3. Feedback su configurazione LLM
+### 3. [COMPLETA] Feedback su configurazione LLM
 - Hover sul bottone **“Generate review”**
 - Se nessun LLM è configurato:
-  - Mostrare un **pop-up informativo**
+  - Mostrare un **pop-up informativo** (già presente)
   - Call to action per configurarlo nelle **Settings**
 - Miglioramenti UI del pop-up:
   - Colori più visibili e accesi
   - La parola **“settings”** deve essere un link diretto alla pagina di configurazione LLM
+
+### 4. Cancella i file durante Uninstall
+- Dare all'utente la possibilità di scegliere se mantenere o cancellare i dati dell'app quando si disinstalla.

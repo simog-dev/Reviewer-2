@@ -162,6 +162,17 @@
             <!-- Populated dynamically -->
           </div>
 
+          <!-- Add Note Button -->
+          <div class="add-note-section">
+            <button class="btn btn-ghost btn-add-note" id="btn-add-free-note"
+                    title="Add a note without highlighting text (N)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              <span>Note</span>
+            </button>
+          </div>
+
           <!-- Annotation List -->
           <div class="annotation-list" id="annotation-list">
             <div class="annotation-list-empty" id="annotation-list-empty">
@@ -177,7 +188,7 @@
 
           <!-- Generate Review Button -->
           <div class="generate-review-container">
-            <button class="btn btn-primary btn-generate-review" id="btn-generate-review" disabled data-tooltip="API key required — configure in Settings">
+            <button class="btn btn-primary btn-generate-review" id="btn-generate-review" disabled>
               <span class="generate-review-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -188,6 +199,23 @@
               <span class="generate-review-label">Generate Review</span>
               <span class="generate-review-spinner" style="display:none"><div class="spinner"></div></span>
             </button>
+
+            <!-- LLM Configuration Tooltip -->
+            <div class="llm-config-tooltip" id="llm-config-tooltip">
+              <div class="llm-config-tooltip-content">
+                <svg class="llm-config-tooltip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <circle cx="12" cy="9" r="0.6" fill="currentColor"/>
+                </svg>
+                <p class="llm-config-tooltip-text">
+                  API key required to generate reviews.
+                  <br>
+                  Configure it in <span class="llm-config-settings-link" id="llm-config-settings-link">settings</span>.
+                </p>
+              </div>
+              <div class="llm-config-tooltip-arrow"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -250,10 +278,12 @@
         </button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
+        <!-- Show for text-based annotations only -->
+        <div class="form-group" id="selected-text-group">
           <label class="form-label">Selected Text</label>
           <div class="selected-text-preview" id="selected-text-preview"></div>
         </div>
+
         <div class="form-group">
           <label class="form-label">Category</label>
           <div class="category-display">
