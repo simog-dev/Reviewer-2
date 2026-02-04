@@ -530,8 +530,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -730,7 +730,7 @@
 
 /* Softer colors for highlight popup buttons */
 .highlight-popup .popup-action-btn.delete-btn {
-  background-color: #ef4444;
+  background-color: #b73030;
 }
 
 .highlight-popup .popup-action-btn.delete-btn:hover {

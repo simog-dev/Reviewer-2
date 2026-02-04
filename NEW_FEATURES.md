@@ -1,11 +1,9 @@
 # Feature Roadmap
 
 ## Major Features
-### 1. Evidenziazione senza annotazione
-- Possibilità di evidenziare testo **senza creare un’annotazione**
-- Da valutare:
-  - Due bottoni separati nel pop-up: **Annotate** e **Highlight**
-  - No bottoni, alla selezione del testo appare un pop-up con due icone (Una per annotate e una per highlight), se si clicca su highlight viene semplicemente evidenziato il testo (nessuna annotazione), se viene cliccato il tasto Annotate, appare il pop-up di scelta della categoria e poi si apre il modal per inserire il commento (come funziona adesso)
+### 1. Rendere il colore highlight selezionabile
+- Pensare al modo più user friendly per cambiare il colore dello strumento highlight.
+Il modo migliore sarebbe metterlo sulla pagina del pdf stesso, ma ho paura di creare confusione e dispersione rispetto alla selezione esistente per le annotazioni nella pagina dei settings. 
 
 ### 2. Importare delle annotazioni (per il futuro)
 - Dopo aver caricato un PDF dev'essere possibile caricare delle annotazioni esportate in precedenza o da un altro utente
@@ -17,5 +15,6 @@
 ---
 
 ## Minor Features
-### 1. Cancella i file durante Uninstall
-- Dare all'utente la possibilità di scegliere se mantenere o cancellare i dati dell'app quando si disinstalla.
+### 1. ✅ Cancella i file durante Uninstall
+- Implementato: durante la disinstallazione su Windows, viene mostrata una finestra di dialogo che chiede all'utente se vuole cancellare i dati dell'applicazione (PDF, annotazioni, impostazioni) o mantenerli per un uso futuro.
+- La scelta predefinita è "No" (mantieni i dati) per sicurezza.

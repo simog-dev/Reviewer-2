@@ -1,5 +1,16 @@
 # Guida per disinstallare "Reviewer 2" su Windows
 
+## 💾 Gestione dei dati durante la disinstallazione
+
+Durante il processo di disinstallazione, ti verrà chiesto se vuoi **eliminare tutti i dati dell'applicazione** oppure **mantenerli** per un uso futuro.
+
+**I dati includono:**
+- Tutti i PDF importati e le relative annotazioni
+- Impostazioni e preferenze dell'applicazione
+- Configurazioni delle categorie
+
+**Nota:** La scelta predefinita è "No" (mantieni i dati). Se scegli di mantenere i dati, potrai reinstallare l'applicazione in futuro e ritrovare tutto come lo avevi lasciato.
+
 ## ⚠️ IMPORTANTE: Prima di disinstallare
 
 **Chiudi completamente l'applicazione Reviewer 2** prima di procedere con la disinstallazione. Se l'app è in esecuzione, otterrai l'errore "Installer integrity check has failed".
@@ -19,15 +30,17 @@
 5. Clicca sui tre puntini → **Disinstalla**
 6. Segui le istruzioni della procedura guidata
 
-## Metodo 2: Se non appare nella lista
+## Metodo 2: Eliminazione manuale dei dati dell'applicazione
 
-1. Cerca ed elimina manualmente la cartella:
-   ```
-   C:\Users\<username>\AppData\Local\reviewer-2
-   C:\Users\<username>\AppData\Local\pdf-reviewer
-   ```
+Se hai scelto di **mantenere i dati** durante la disinstallazione ma ora vuoi eliminarli, oppure se l'app non appare nella lista delle applicazioni installate:
 
-2. Elimina il collegamento sul desktop:
+1. Elimina manualmente la cartella dei dati dell'applicazione:
+   ```
+   C:\Users\<username>\AppData\Roaming\reviewer-2
+   ```
+   **Nota:** Questa cartella contiene tutti i tuoi PDF, annotazioni e impostazioni.
+
+2. Elimina il collegamento sul desktop (se presente):
    - Tasto destro sul collegamento → Elimina
 
 3. (Opzionale) Pulisci il registro:
