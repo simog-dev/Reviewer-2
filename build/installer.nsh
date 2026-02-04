@@ -10,7 +10,7 @@
 
 !macro customUnInstall
   ; Try to close running application before uninstall
-  nsExec::Exec 'taskkill /F /IM ${PRODUCT_FILENAME}.exe /T'
+  nsExec::Exec 'taskkill /F /IM Reviewer2.exe /T'
   Sleep 1000
 
   ; Ask user if they want to delete application data
@@ -18,13 +18,13 @@
   MessageBox MB_YESNO|MB_ICONQUESTION \
     "Do you want to delete all application data?$\r$\n$\r$\nThis includes:$\r$\n• All imported PDFs and their annotations$\r$\n• Application settings and preferences$\r$\n• Category configurations$\r$\n$\r$\nClick 'No' to keep your data for future use." \
     /SD IDNO \
-    IDYES +1 IDNO +3
-    ; User clicked Yes - delete app data
-    RMDir /r "$APPDATA\${APP_FILENAME}"
-    Goto +2
-    ; User clicked No - skip deletion
-    Goto +1
+    IDNO skip_delete
 
+    ; User clicked Yes - delete all app data folders
+    RMDir /r "$APPDATA\reviewer-2"
+    RMDir /r "$LOCALAPPDATA\reviewer-2-updater"
+
+  skip_delete:
   ; Clean up marker file
   Delete "$INSTDIR\install_path.txt"
 !macroend
