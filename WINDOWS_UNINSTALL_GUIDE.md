@@ -38,7 +38,7 @@ Se hai scelto di **mantenere i dati** durante la disinstallazione ma ora vuoi el
    ```
    C:\Users\<username>\AppData\Roaming\reviewer-2
    ```
-   **Nota:** Questa cartella contiene tutti i tuoi PDF, annotazioni e impostazioni.
+   **Nota:** Questa cartella contiene tutti i tuoi PDF, annotazioni e impostazioni. Il nome della cartella potrebbe variare leggermente in base alla versione installata (`reviewer-2` o `Reviewer 2`).
 
 2. Elimina il collegamento sul desktop (se presente):
    - Tasto destro sul collegamento → Elimina
